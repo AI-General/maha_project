@@ -93,7 +93,7 @@ def parse_html(post_html):
         f.write("\n************************************str(post_html)\n************************************\n")
 
     response = openai.ChatCompletion.create(  
-        model="gpt-4o-2024-11-20",   
+        model="gpt-4o-mini",   
         messages=[  
             {  
                 "role": "system",  
@@ -157,7 +157,7 @@ def parse_post_date(date_string):
         parse_old_prompt = file.read()
 
     response = openai.ChatCompletion.create(  
-        model="gpt-4o-2024-11-20",  
+        model="gpt-4o-mini",  
         messages=[  
             {  
                 "role": "system",  
@@ -176,7 +176,7 @@ def parse_post_date(date_string):
         return response_string
     
     response = openai.ChatCompletion.create(  
-        model="gpt-4o-2024-11-20",  
+        model="gpt-4o-mini",  
         messages=[  
             {  
                 "role": "system",  
