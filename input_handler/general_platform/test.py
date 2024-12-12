@@ -118,26 +118,36 @@ class Generalscrapper():
             logger.info(f"len(elements): {len(elements)}")  
 
             # Iterate over all elements and process data extraction  
-            for element in elements:                                  
+            for element in elements:         
+                if self.consider_exit == 50:
+                    logger.info("Exiting loop after 50 empty elements")
+                    self.page_consider = 0
+                    break
+
                 article_data = self.get_one_article_data(element, article_domain) 
                 
                 if article_data == []:
+                    self.consider_exit += 1
                     logger.info("Couldn't find actual article from the element")                    
                     continue
 
-                if article_data["article_url"] and article_data["article_title"]:  
+                if article_data["article_url"] and article_data["article_title"]:
+                    if article_domain == "freevoicemedianewsletter.beehiiv.com":
+                        article_data["article_title"] = article_data["article_title"] + " " + article_data["article_age"]
                     if check_if_exists(article_domain, article_data):
+                        self.consider_exit += 1
                         continue
 
                     temp_age = article_data["article_age"]
                     article_data["text"], article_data["article_age"] = get_article_info_from_serper(article_data["article_url"])
 
                     if article_data["article_age"] == "":
-                        logger.info(f"Serper api failed. Using post date - {temp_age}")
+                        logger.info(f"Failed to get article age using serper. Trying to get article age using post date - {temp_age}")
                         article_data["article_age"] = parse_post_date(temp_age)
                         
                     if article_data["article_age"] != "":
                         if calculate_days_behind(article_data["article_age"]) > days_behind:
+                            self.consider_exit += 1
                             logger.info(f"Article is older than {days_behind} days. Skipping\n")
                             continue
                     
@@ -169,6 +179,8 @@ class Generalscrapper():
             #     logger.error(f"An error occurred in page type 1: {e}", exc_info=True)
             
         if view_type == "page2":
+            if get_domain_from_url(url) == "actforamerica.org":
+                page_num = 1
             # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
@@ -177,6 +189,18 @@ class Generalscrapper():
                     break
                 page_num += 1
                 url = f"{base_url}?page={page_num}/"
+            # except Exception as e:
+            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
+        
+        if view_type == "page3":
+            # try:
+            while True:
+                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
+                if self.page_consider == 0:
+                    logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page2\n")
+                    break
+                page_num += 1
+                url = f"{base_url}?page_number={page_num}#news-archive"
             # except Exception as e:
             #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
             
@@ -206,6 +230,7 @@ class Generalscrapper():
 
         if view_type == "exception":
             domain = get_domain_from_url(url)
+            driver.get(url)
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -215,20 +240,14 @@ class Generalscrapper():
                     self.page_consider = 0
                 else:
                     logger.info(f"More articles are found in this exception case!!!\n")
-                    parse_type = "//div[contains(@class, 'o-post-card') and contains(@class, 'o-post-card--inline')]"
-                    elements = driver.find_elements(By.XPATH, parse_type)  
-                    logger.info(f"Number of elements: {len(elements)}")
                     
             # except Exception as e:
             #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
             
         driver.quit()
     
-
     def main(self):
-        inputs = [{"url": "https://www.theamericanconservative.com/blogs/state_of_the_union/", "view_type": "button1", "parse_type": "//div[contains(@class, 'o-post-card') and contains(@class, 'o-post-card--inline')]"
-        },]
-
+        inputs = [{"url": "https://revolver.news/", "view_type":"page1", "parse_type":'//article[contains(@class, "item") and starts-with(@class, "item-")]'},]
         exceptions = ["theamericanconservative.com"]
         for input in inputs:
             url = input["url"]
@@ -242,6 +261,8 @@ class Generalscrapper():
             
             logger.info(f"\033[1;36m We are handling Completely different new url. Current url: {url}\033[0m")  
             driver = self.setup_driver()
+
+            self.consider_exit = 0
             whole_article_data = self.get_whole_article_data(driver, url, view_type, parse_type, days_behind=10)
 
             with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:

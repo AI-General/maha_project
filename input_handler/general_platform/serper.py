@@ -25,7 +25,7 @@ logger.configure(handlers=[{
 
 conn = http.client.HTTPSConnection("scrape.serper.dev")
 headers = {
-  'X-API-KEY': 'be214b4d285a903f2baabf65e50f199811da0ffa',
+  'X-API-KEY': '227e89b21ecf68c3b4ceb51930bde8212b5d33ba',
   'Content-Type': 'application/json'
 }
 
