@@ -4,6 +4,6 @@ Extract 5 key pieces of information from the variable target_html_contents and f
 2. article_url - The URL (link) to the article.  
 3. article_image_url - The URL of the main image associated with the article.  
 4. short_article_description - A brief summary or description of the article.  
-5. publication_age - How long ago the article was published or when it is published (e.g., '2 days ago', '3 hours ago', 'published on 2024-11-09', '2024/03/11').  
+5. article_age - How long ago the article was published or when it is published (e.g., '2 days ago', '3 hours ago', 'published on 2024-11-09', '2024/03/11').  
 
 If any of these fields are not found in the HTML, return their values as an empty string ('') in the JSON result. Make sure the JSON object is properly formatted and easy to read.

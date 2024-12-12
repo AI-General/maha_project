@@ -5,7 +5,9 @@ Only strings that clearly specify an **explicit, unambiguous date** should retur
 
 For example:  
 - 'published on 2024-11-09' → Extract and return `2024-11-09`.  
-- '11/03/2024' → Convert and return `2024-11-03`.  
+- '11/03/2024' → Convert and return `2024-11-03`.   
+- 'Dec 2' → Convert and return `2024-12-02`.    
+- 'December 2' → Convert and return `2024-12-02`.  
 - '2 days ago' → CANNOT unambiguously determine a specific date, return an empty string (`""`).  
 - '3 hours ago' → CANNOT unambiguously determine a date, return an empty string (`""`).  
 - 'sometime next week' → Ambiguous, return an empty string (`""`).  
