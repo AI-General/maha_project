@@ -180,7 +180,7 @@ class Generalscrapper():
             
         if view_type == "page2":
             if get_domain_from_url(url) == "actforamerica.org":
-                page_num = 1
+                page_num = 0
             # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
