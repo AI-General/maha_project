@@ -6,3 +6,6 @@ configuration/mahabackend-firebase.json
 input_handler/general_platform/response.json
 input_handler/general_platform/log.txt
 input_handler/general_platform/program_log.log
+configuration
+input_handler/Database/__pycache__
+input_handler/twitter/program_log.log
