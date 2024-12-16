@@ -2,9 +2,13 @@ import time
 import sys
 import json  
 import re
-
+import os
 from dotenv import load_dotenv
 load_dotenv()
+
+# Get the parent directory and append it to the system path  
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
+sys.path.append(parent_dir) 
 
 from selenium import webdriver  
 from selenium.webdriver.chrome.service import Service  
@@ -13,7 +17,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC  
 from webdriver_manager.chrome import ChromeDriverManager  
 
-from db import insert_article, check_if_exists
+from Database.db import initialize_firestore, insert_article, check_if_exists
+db = initialize_firestore("Firebase_Credentials_General_Platform")
 from serper import get_article_info_from_serper
 from parse_utils import (  
     clean_article_url,  
@@ -134,7 +139,7 @@ class Generalscrapper():
                 if article_data["article_url"] and article_data["article_title"]:
                     if article_domain == "freevoicemedianewsletter.beehiiv.com":
                         article_data["article_title"] = article_data["article_title"] + " " + article_data["article_age"]
-                    if check_if_exists(article_domain, article_data):
+                    if check_if_exists(db, article_domain, article_data):
                         self.consider_exit += 1
                         continue
 
@@ -151,7 +156,7 @@ class Generalscrapper():
                             logger.info(f"Article is older than {days_behind} days. Skipping\n")
                             continue
                     
-                    insert_article(article_domain, article_data)               
+                    insert_article(db, article_domain, article_data)               
                     self.page_consider += 1
                 
         # except Exception as e:  
@@ -247,7 +252,9 @@ class Generalscrapper():
         driver.quit()
     
     def main(self):
-        inputs = [{"url": "https://revolver.news/", "view_type":"page1", "parse_type":'//article[contains(@class, "item") and starts-with(@class, "item-")]'},]
+        inputs = [  
+            {"url": "https://revolver.news/", "view_type":"page1", "parse_type":'//article[contains(@class, "item item-")]'},
+        ]
         exceptions = ["theamericanconservative.com"]
         for input in inputs:
             url = input["url"]

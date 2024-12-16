@@ -1,9 +1,13 @@
 import http.client
 import json
 import sys
+import os
+from dotenv import load_dotenv
 from datetime import datetime  
 from parse_utils import parse_post_date
 from loguru import logger
+
+load_dotenv()
 
 file = open("program_log.log", "w")  
 logger.configure(handlers=[{  
@@ -25,7 +29,7 @@ logger.configure(handlers=[{
 
 conn = http.client.HTTPSConnection("scrape.serper.dev")
 headers = {
-  'X-API-KEY': '227e89b21ecf68c3b4ceb51930bde8212b5d33ba',
+  'X-API-KEY': os.getenv("SERPER_API_KEY"),
   'Content-Type': 'application/json'
 }
 
