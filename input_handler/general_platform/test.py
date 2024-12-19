@@ -10,6 +10,7 @@ load_dotenv()
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
 sys.path.append(parent_dir) 
 
+from seleniumbase import Driver
 from selenium import webdriver  
 from selenium.webdriver.chrome.service import Service  
 from selenium.webdriver.common.by import By  
@@ -18,14 +19,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager  
 
 from Database.db import initialize_firestore, insert_article, check_if_exists
-db = initialize_firestore("Firebase_Credentials_General_Platform")
 from serper import get_article_info_from_serper
 from parse_utils import (  
     clean_article_url,  
     get_domain_from_url,
     parse_html,  
     parse_post_date,  
-    calculate_days_behind,  
+    calculate_days_behind,
+    is_cloudflare_protected
 )
 from exception_case import get_more_articles
 
@@ -49,9 +50,17 @@ logger.configure(handlers=[{
 }])  
 
 class Generalscrapper():
-    def setup_driver(self):
+    def setup_driver(self, url):
+        if is_cloudflare_protected(url):
+            driver = Driver(uc=True, headless=False)
+
+            driver.get(url)
+            driver.uc_open_with_reconnect(url, reconnect_time=6)
+            driver.uc_gui_click_captcha()
+            return driver
+        
         chrome_options = webdriver.ChromeOptions()  
-        chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
+        # chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36')  
         chrome_options.add_argument('--disable-popup-blocking')  # Disable popup blocks  
         chrome_options.add_argument('--disable-background-timer-throttling')  # Disable background throttling  
@@ -65,7 +74,8 @@ class Generalscrapper():
         chrome_options.add_argument('--disable-extensions')  # Disable extensions for stability  
         
         webdriver_service = Service(ChromeDriverManager().install())
-        return webdriver.Chrome(service=webdriver_service, options = chrome_options)
+        driver = webdriver.Chrome(service=webdriver_service, options = chrome_options)
+        return driver
 
     def get_one_article_data(self, element, article_domain):
         article_data = []
@@ -102,7 +112,7 @@ class Generalscrapper():
         
         return article_data
 
-    def get_article_data_from_one_page(self, driver, url, view_type, parse_type, days_behind): 
+    def get_article_data_from_one_page(self, driver, db, url, view_type, parse_type, days_behind): 
         logger.info(f"\033[31m We are handling new url in same domain. Current url: {url}\033[0m")
         self.page_consider = 0
         self.exception_list = ["scroll", "exception"]
@@ -164,7 +174,7 @@ class Generalscrapper():
              
         return self.page_consider
 
-    def get_whole_article_data(self, driver, url, view_type, parse_type, days_behind):
+    def get_whole_article_data(self, driver, db, url, view_type, parse_type, days_behind):
         base_url = url
         page_num = 1
         if view_type == "page1":
@@ -174,7 +184,7 @@ class Generalscrapper():
                 url = f"{base_url}/page/{page_num}/"
         # try:
             while True:
-                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page1\n")
                     break
@@ -188,7 +198,7 @@ class Generalscrapper():
                 page_num = 0
             # try:
             while True:
-                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page2\n")
                     break
@@ -200,7 +210,7 @@ class Generalscrapper():
         if view_type == "page3":
             # try:
             while True:
-                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page2\n")
                     break
@@ -218,7 +228,7 @@ class Generalscrapper():
                 time.sleep(10)  # Adjust this value based on the site's load time  
                 
                 # Extract articles from the current page  
-                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)  
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)  
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as scroll\n")
                     break
@@ -237,7 +247,7 @@ class Generalscrapper():
             domain = get_domain_from_url(url)
             driver.get(url)
             while True:
-                self.page_consider = self.get_article_data_from_one_page(driver, url, view_type, parse_type, days_behind)
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in this exception case. Stop searching and try to get more artilces.\n")
                     break
@@ -253,10 +263,14 @@ class Generalscrapper():
     
     def main(self):
         inputs = [  
-            {"url": "https://revolver.news/", "view_type":"page1", "parse_type":'//article[contains(@class, "item item-")]'},
+            {"url": "https://www.mahanow.org/press", "view_type": "page2", "parse_type": "//div[@class='col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-5']", "article_type": "text"},
         ]
-        exceptions = ["theamericanconservative.com"]
+        exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
         for input in inputs:
+            if input["article_type"] == "text":
+                db = initialize_firestore("Firebase_Credentials_General_Platform")
+            if input["article_type"] == "video":
+                db = initialize_firestore("Firebase_Credentials_Video_Platform")
             url = input["url"]
             view_type = input["view_type"]
             parse_type = input["parse_type"]
@@ -267,10 +281,10 @@ class Generalscrapper():
                 logger.info("We found exception cases!!!")
             
             logger.info(f"\033[1;36m We are handling Completely different new url. Current url: {url}\033[0m")  
-            driver = self.setup_driver()
+            driver = self.setup_driver(url)
 
             self.consider_exit = 0
-            whole_article_data = self.get_whole_article_data(driver, url, view_type, parse_type, days_behind=10)
+            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=200)
 
             with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:
                 json.dump(whole_article_data, f, ensure_ascii=False, indent=4)
