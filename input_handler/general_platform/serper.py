@@ -56,6 +56,7 @@ def get_article_info_from_serper(url):
   conn.request("POST", "/", payload, headers)
   res = conn.getresponse()
   data = res.read()
+  logger.info("Serper API Key: " + os.getenv("SERPER_API_KEY"))
 
   # Decode the response and save it as a JSON file  
   try:  

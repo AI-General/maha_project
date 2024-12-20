@@ -29,7 +29,6 @@ from parse_utils import (
     parse_html,  
     parse_post_date,  
     calculate_days_behind,
-    is_cloudflare_protected
 )
 from exception_case import get_more_articles
 
@@ -54,7 +53,7 @@ logger.configure(handlers=[{
 
 class Generalscrapper():
     def __init__(self):
-        self.cloudflare_exceptions = ["mahanow.org"]
+        self.cloudflare_exceptions = ["mahanow.org", "tuckercarlson.com"]
         self.view_exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
         self.SCRAPEOPS_API_KEY = os.getenv("SCRAPEOPS_API_KEY")
 
@@ -245,9 +244,24 @@ class Generalscrapper():
                 url = f"{base_url}?page_number={page_num}#news-archive"
             # except Exception as e:
             #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
-            
+        
+        if view_type == "page4":
+            # try:
+            while True:
+                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
+                if self.page_consider == 0:
+                    logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page4\n")
+                    break
+                page_num += 1
+                url = f"{base_url}?pg={page_num}"
+            # except Exception as e:
+            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
+             
         if view_type == "scroll":
-            # try:  
+            if get_domain_from_url(url) == "podcasts.apple.com":
+                driver.get(url)
+                get_more_articles(driver, get_domain_from_url(url))
+            
             last_height = driver.execute_script("return document.body.scrollHeight")  
             url = base_url
             driver.get(url)
@@ -273,6 +287,7 @@ class Generalscrapper():
         if view_type == "exception":
             domain = get_domain_from_url(url)
             driver.get(url)
+            time.sleep(13)
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -289,13 +304,15 @@ class Generalscrapper():
     
     def main(self):
         inputs = [  
-            {"url": "https://drhyman.com/blogs/content", "view_type": "page2", "parse_type": '//div[contains(@class,"blog-articles__article") and contains(@class, "article")]', "article_type": "text"},
+            {"url": "https://depopulation.news/all-posts/", "view_type": "page1", "parse_type": "//div[@class='Post']"},   
         ]
         for input in inputs:
-            if input["article_type"] == "text":
-                db = initialize_firestore("Firebase_Credentials_General_Platform")
-            if input["article_type"] == "video":
-                db = initialize_firestore("Firebase_Credentials_Video_Platform")
+            db = initialize_firestore("Firebase_Credentials_General_Platform")
+            try:
+                if input["article_type"] == "video":
+                    db = initialize_firestore("Firebase_Credentials_Video_Platform")
+            except:
+                pass
             url = input["url"]
             view_type = input["view_type"]
             parse_type = input["parse_type"]
@@ -309,7 +326,7 @@ class Generalscrapper():
             driver = self.setup_driver(url)
 
             self.consider_exit = 0
-            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=10)
+            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=200)
 
             with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:
                 json.dump(whole_article_data, f, ensure_ascii=False, indent=4)
