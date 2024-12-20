@@ -6,7 +6,7 @@ import requests
 import yt_dlp
 import base64
 
-from typing import Callable, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from seleniumwire import webdriver  # Import from seleniumwire
 
@@ -14,14 +14,105 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options  
 from selenium.webdriver.chrome.service import Service  
 from webdriver_manager.chrome import ChromeDriverManager 
+from selenium.webdriver.support.ui import WebDriverWait  
+from selenium.webdriver.support import expected_conditions as EC  
 
 from loguru import logger
+from urllib.parse import urlparse, parse_qs 
 
-def create_driver():  
-    options = webdriver.ChromeOptions()  
-    options.add_argument("--headless")  
-    driver = webdriver.Chrome()  
-    return driver  
+import sys
+def apple_siginin(driver, url):
+    try:  
+        time.sleep(5)
+            
+        play_button = WebDriverWait(driver, 10).until(  
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Play')]"))  
+        )  
+        play_button.click()  
+        print("Clicked the play button!")
+        
+        WebDriverWait(driver, 10).until(  
+            EC.presence_of_element_located((By.CSS_SELECTOR, "dialog[data-testid='dialog'][open]"))  
+        )  
+        sign_in_button = WebDriverWait(driver, 10).until(  
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='explicit-content-modal-action-button']"))  
+        )  
+        sign_in_button.click()  
+        print("Clicked the 'Sign In' button!")
+        time.sleep(10)
+
+        iframe = WebDriverWait(driver, 10).until(  
+            EC.presence_of_element_located((By.CSS_SELECTOR, "#ck-container iframe"))  
+        )  
+        driver.switch_to.frame(iframe)  
+        print("Switched to the iframe!")    
+
+        parent_container = WebDriverWait(driver, 10).until(  
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-test='onboarding-commerce-form']"))  
+        )  
+        email_input = parent_container.find_element(By.ID, 'accountName')  
+        email_input.click()  
+        email_input.clear()  
+        email_input.send_keys("nickfontana.tech@gmail.com")  
+        print("Email input found and filled!")
+        time.sleep(5)
+            
+        continue_button = WebDriverWait(driver, 10).until(  
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Continue')]"))  
+        )  
+        continue_button.click()
+        print("Continue button found!")
+        time.sleep(10)
+
+        iframe = WebDriverWait(driver, 10).until(  
+            EC.presence_of_element_located((By.CSS_SELECTOR, "iframe#aid-auth-widget-iFrame"))  
+        )  
+        driver.switch_to.frame(iframe)  
+        print("Switched to second iframe!")
+        
+        password_input = WebDriverWait(driver, 10).until(  
+            EC.presence_of_element_located((By.ID, 'password_text_field'))  
+        )  
+        password_input.click()  # Focus on the input field, may not be needed in some cases  
+        password_input.clear()  # Clear any pre-existing text, if any  
+        password_input.send_keys("P@ssw0rd123123")  # Input the password  
+        time.sleep(5)
+        
+        sign_in_button = WebDriverWait(driver, 10).until(  
+            EC.element_to_be_clickable((By.ID, 'sign-in'))  
+        )  
+        sign_in_button.click()  
+        print("Clicked the 'Sign In' button!")  
+        time.sleep(15)
+        
+        driver.get(url)
+        resume_button = WebDriverWait(driver, 15).until(  
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Resume')]"))  
+        )  
+        resume_button.click()  
+        print("Clicked the resume button!")
+        time.sleep(15)
+        
+    except Exception as e:  
+        print(f"An error occurred: {e}")  
+  
+def create_driver():
+    chrome_options = webdriver.ChromeOptions()  
+    # chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36')  
+    chrome_options.add_argument('--disable-popup-blocking')  # Disable popup blocks  
+    chrome_options.add_argument('--disable-background-timer-throttling')  # Disable background throttling  
+    chrome_options.add_argument('--disable-infobars')  # Disable info bars in the UI (e.g., "Chrome is being controlled...")  
+    chrome_options.add_argument('--ignore-gpu-blacklist')  # Force enabling GPU even if unsupported by default  
+    chrome_options.add_argument('--no-sandbox')  # Bypass OS security model (needed in some environments)  
+    chrome_options.add_argument('--disable-dev-shm-usage')  # Prevent crashes due to limited /dev/shm  
+    chrome_options.add_argument('--disable-gpu')  # Disable GPU (needed for some rendering issues in headless mode)  
+    chrome_options.add_argument('--window-size=1920,1080')  # Set browser window size (needed for responsive web pages)  
+    chrome_options.add_argument('--start-maximized')  # Ensure full content is visible  
+    chrome_options.add_argument('--disable-extensions')  # Disable extensions for stability  
+    
+    webdriver_service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=webdriver_service, options = chrome_options)
 
 def get_domain_from_url(
     url: str,
@@ -67,9 +158,6 @@ def decode_url(url):
     new_url = urlunparse(new_url_components)
 
     return new_url
-
-import re  
-from urllib.parse import urlparse, parse_qs  
 
 def parse_youtube_url(url: str) -> str:  
     youtube_domains = [  
@@ -174,7 +262,10 @@ def download_stream(
         else:
             file_path = f"{dir_data}/{file_name}"
             ffmpeg_command = f'ffmpeg {header_opts} -i "{url}" -c copy -bsf:a aac_adtstoasc -y "{file_path}"'
-
+            if "mp3" in url:
+                ffmpeg_command = f'ffmpeg {header_opts} -i "{url}" -c copy -y "{file_path}"'
+            if "mp4" or "m3u8" in url:
+                ffmpeg_command = f'ffmpeg {header_opts} -i "{url}" -vn -acodec libmp3lame -q:a 2 -y {file_path}'
         # Run ffmpeg command
         logger.info(f"FFMPEG command: {ffmpeg_command}")
         proc = subprocess.run(
@@ -229,6 +320,7 @@ def download_stream(
         return False, file_name
 
 def download_from_past_stream(
+    driver,
     url: str,
     dir_data: str,
     file_name: str,
@@ -236,12 +328,13 @@ def download_from_past_stream(
 
     # Extract domain
     domain = get_domain_from_url(url)
-
-    # Create Google Chrome driver
-    driver = create_driver()
-
-    # Go to URL
     driver.get(url)
+    if domain == "podcasts.apple.com":
+        apple_siginin(driver, url)
+            # Go to URL
+
+
+    # driver.get(url)
     time.sleep(10)
 
     # Live audio scraping
@@ -524,7 +617,14 @@ def download_from_past_stream(
     #     logger.warning(f"Error in download_stream: {e}")
     #     return None
 
+def main(url, dir_data, file_name):
+    driver = create_driver()
+    download_from_past_stream(driver, url, dir_data, file_name)
+    driver.quit()
+
 if __name__ == "__main__":
-    url = "https://podcasts.apple.com/us/podcast/98-red-light-therapy-with-steve-marchese/id1608256407?i=1000670952635"
+    # url = "https://podcasts.apple.com/us/podcast/98-red-light-therapy-with-steve-marchese/id1608256407?i=1000670952635"
+    url = "https://thetruthaboutcancer.com/madej-covid-19-transhumanism/"
     current_directory = os.getcwd()  
-    download_from_past_stream(url, current_directory, "test.mp3")
+    # login_apple_podcast()
+    main(url, dir_data=current_directory, file_name="test.mp3")
