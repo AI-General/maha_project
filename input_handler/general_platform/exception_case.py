@@ -37,7 +37,7 @@ def get_more_articles(driver, domain):
             # Step 1: Wait for the button to appear and become clickable  
             wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds  
             load_more_button = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "js-archive-load-more-button")))  
-            print("Load more button found in the DOM!")  
+            logger.info("Load more button found in the DOM!")  
 
             # Step 2: Scroll the button into view  
             driver.execute_script("arguments[0].scrollIntoView(true);", load_more_button)  
@@ -48,38 +48,37 @@ def get_more_articles(driver, domain):
                 # Handle modal overlay (e.g., fc-dialog-scrollable-content)  
                 blocking_modal = driver.find_element(By.CLASS_NAME, "fc-dialog-scrollable-content")  
                 driver.execute_script("arguments[0].style.display = 'none';", blocking_modal)  
-                print("Blocking modal hidden!")  
+                logger.info("Blocking modal hidden!")  
             except Exception as e:  
-                print(f"No blocking modal detected: {e}")  
+                logger.info(f"No blocking modal detected: {e}")  
 
             # Hide all iframes dynamically (if present)  
             iframes = driver.find_elements(By.TAG_NAME, "iframe")  
             for iframe in iframes:  
                 try:  
                     iframe_id = iframe.get_attribute("id")  
-                    print(f"Hiding iframe with ID: {iframe_id}")  
+                    logger.info(f"Hiding iframe with ID: {iframe_id}")  
                     driver.execute_script("arguments[0].style.display = 'none';", iframe)  
                 except Exception as e:  
-                    print(f"Could not hide iframe: {e}")  
+                    logger.info(f"Could not hide iframe: {e}")  
 
             # Check if the button is still blocked and force-click using JavaScript  
             try:  
                 # Using normal Selenium click (preferred way)  
                 load_more_button.click()  
-                print("Button clicked successfully using Selenium!")  
+                logger.info("Button clicked successfully using Selenium!")  
             except Exception as e:  
-                print(f"Selenium click failed: {e}. Attempting JS-based click...")  
+                logger.info(f"Selenium click failed: {e}. Attempting JS-based click...")  
                 driver.execute_script("arguments[0].click();", load_more_button)  # JS-based click fallback  
-                print("Button clicked successfully using JavaScript!")  
+                logger.info("Button clicked successfully using JavaScript!")  
 
             # Optional: Allow some time for articles to load  
             time.sleep(10)  
 
         except Exception as e:  
-            print(f"An error occurred while loading more articles: {e}")  
+            logger.info(f"An error occurred while loading more articles: {e}")  
             return 0
-    if domain == "nopharmfilm.com":
-        print("Current domain is nopharmfilm.com")
+    elif domain == "nopharmfilm.com":
         time.sleep(3)
         try:  
             wait = WebDriverWait(driver, 10)  # Set a wait time of 10 seconds  
@@ -89,8 +88,13 @@ def get_more_articles(driver, domain):
 
             # Step 4: Click the "Load more" button  
             load_more_button.click()  
-            print("Clicked 'Load more' button successfully.")  
+            logger.info("Clicked 'Load more' button successfully.")  
             
         except Exception as e:  
-            print(f"An error occurred while loading more articles: {e}")  
+            logger.info(f"An error occurred while loading more articles: {e}")  
             return 0
+    elif domain == "podcasts.apple.com":
+        parent_element = driver.find_element(By.XPATH, "//div[@class='link-list svelte-12v9bo2']")  
+        see_all_element = parent_element.find_element(By.XPATH, ".//a[@data-testid='click-action' and contains(text(), 'See All')]")  
+        see_all_element.click()  
+        logger.info("Clicked 'See All' button successfully.")
