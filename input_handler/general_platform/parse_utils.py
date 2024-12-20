@@ -255,3 +255,25 @@ def calculate_days_behind(article_date):
         return days_behind  
     except ValueError as e:  
         return 999999    # If no matching article, append the new one  
+
+def is_cloudflare_protected(url):  
+    try:  
+        # Send a GET request to the URL  
+        response = requests.get(url, timeout=10)  
+        
+        # Check HTTP response headers for Cloudflare identification  
+        if 'Server' in response.headers and 'cloudflare' in response.headers['Server'].lower():  
+            return True  
+        
+        if 'CF-RAY' in response.headers:  
+            return True  # Cloudflare adds a CF-RAY header to all responses.  
+
+        # Check if body contains Cloudflare challenge page content  
+        if "Redirecting..." in response.text and "/cdn-cgi/" in response.text:  
+            return True  
+        
+        # If none of the above conditions are met, it's likely not Cloudflare-protected  
+        return False  
+    except requests.exceptions.RequestException as e:  
+        print(f"Failed to connect to {url}: {e}")  
+        return False  

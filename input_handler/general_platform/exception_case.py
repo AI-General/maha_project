@@ -78,3 +78,19 @@ def get_more_articles(driver, domain):
         except Exception as e:  
             print(f"An error occurred while loading more articles: {e}")  
             return 0
+    if domain == "nopharmfilm.com":
+        print("Current domain is nopharmfilm.com")
+        time.sleep(3)
+        try:  
+            wait = WebDriverWait(driver, 10)  # Set a wait time of 10 seconds  
+            load_more_button = wait.until(  
+                EC.element_to_be_clickable((By.CLASS_NAME, "more-actions"))  
+            )  
+
+            # Step 4: Click the "Load more" button  
+            load_more_button.click()  
+            print("Clicked 'Load more' button successfully.")  
+            
+        except Exception as e:  
+            print(f"An error occurred while loading more articles: {e}")  
+            return 0

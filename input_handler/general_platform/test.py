@@ -3,6 +3,8 @@ import sys
 import json  
 import re
 import os
+import random
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -10,13 +12,14 @@ load_dotenv()
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
 sys.path.append(parent_dir) 
 
-from seleniumbase import Driver
 from selenium import webdriver  
+from seleniumwire import webdriver
 from selenium.webdriver.chrome.service import Service  
-from selenium.webdriver.common.by import By  
-from selenium.webdriver.support.ui import WebDriverWait  
-from selenium.webdriver.support import expected_conditions as EC  
-from webdriver_manager.chrome import ChromeDriverManager  
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 from Database.db import initialize_firestore, insert_article, check_if_exists
 from serper import get_article_info_from_serper
@@ -50,15 +53,39 @@ logger.configure(handlers=[{
 }])  
 
 class Generalscrapper():
-    def setup_driver(self, url):
-        if is_cloudflare_protected(url):
-            driver = Driver(uc=True, headless=False)
+    def __init__(self):
+        self.cloudflare_exceptions = ["mahanow.org"]
+        self.view_exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
+        self.SCRAPEOPS_API_KEY = os.getenv("SCRAPEOPS_API_KEY")
 
-            driver.get(url)
-            driver.uc_open_with_reconnect(url, reconnect_time=6)
-            driver.uc_gui_click_captcha()
+    def setup_driver(self, url):
+        if get_domain_from_url(url) in self.cloudflare_exceptions:
+            logger.info("Cloudflare protected")
+            options = webdriver.ChromeOptions()
+            #user-agent rotation
+            user_agents = [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36",
+            ]
+            #random user agent
+            user_agent = random.choice(user_agents)
+            #add the user agent
+            options.add_argument(f"user-agent={user_agent}")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            # options.add_argument("--headless")
+            #set up proxy
+            proxy_options = {
+                "proxy": {
+                    "http": f"http://scrapeops.headless_browser_mode=true:{self.SCRAPEOPS_API_KEY}@proxy.scrapeops.io:5353",
+                    "https": f"http://scrapeops.headless_browser_mode=true:{self.SCRAPEOPS_API_KEY}@proxy.scrapeops.io:5353",
+                    "no_proxy": "localhost:127.0.0.1",
+                }
+            }
+            #disable loading images for faster crawling
+            options.add_argument("--blink-settings=imagesEnabled=false")
+            #initialize the WebDriver with options
+            driver = webdriver.Chrome(options=options, seleniumwire_options=proxy_options)
             return driver
-        
+            
         chrome_options = webdriver.ChromeOptions()  
         # chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36')  
@@ -203,7 +230,7 @@ class Generalscrapper():
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as page2\n")
                     break
                 page_num += 1
-                url = f"{base_url}?page={page_num}/"
+                url = f"{base_url}?page={page_num}"
             # except Exception as e:
             #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
         
@@ -257,15 +284,13 @@ class Generalscrapper():
                     logger.info(f"More articles are found in this exception case!!!\n")
                     
             # except Exception as e:
-            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
-            
+            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)     
         driver.quit()
     
     def main(self):
         inputs = [  
-            {"url": "https://www.mahanow.org/press", "view_type": "page2", "parse_type": "//div[@class='col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-5']", "article_type": "text"},
+            {"url": "https://drhyman.com/blogs/content", "view_type": "page2", "parse_type": '//div[contains(@class,"blog-articles__article") and contains(@class, "article")]', "article_type": "text"},
         ]
-        exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
         for input in inputs:
             if input["article_type"] == "text":
                 db = initialize_firestore("Firebase_Credentials_General_Platform")
@@ -276,7 +301,7 @@ class Generalscrapper():
             parse_type = input["parse_type"]
             article_domain = get_domain_from_url(url)
 
-            if article_domain in exceptions:
+            if article_domain in self.view_exceptions:
                 view_type = "exception"
                 logger.info("We found exception cases!!!")
             
@@ -284,7 +309,7 @@ class Generalscrapper():
             driver = self.setup_driver(url)
 
             self.consider_exit = 0
-            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=200)
+            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=10)
 
             with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:
                 json.dump(whole_article_data, f, ensure_ascii=False, indent=4)
