@@ -41,26 +41,27 @@ def check_url_status(url):
         return 0
 
 def clean_article_url(article_url, article_image_url, url_domain):
-    logger.info(f"article_url: {article_url}")
-    logger.info(f"article_image_url: {article_image_url}")
-    logger.info(f"url_domain: {url_domain}")
-    if article_url.startswith(url_domain):
-        article_url = "https://" + article_url
+    logger.info("Before cleaning article_url: " + article_url)
+    logger.info("Before cleaning article_image_url: " + article_image_url)
+    if not article_url.startswith("www") and not article_url.startswith("http") and not article_url.startswith("//www"):
+        if not article_url.startswith("https"):
+            if article_url.startswith(url_domain):
+                article_url = "https://" + article_url
+            
+            if not article_url.startswith("/"):
+                article_url = "https://" + url_domain + "/" + article_url
+            else:
+                article_url = "https://" + url_domain + article_url
+    
+    if not article_image_url.startswith("www") and not article_image_url.startswith("http") and not article_image_url.startswith("//www"):
+        if not article_image_url.startswith("https"):
+            if article_image_url.startswith(url_domain):
+                article_image_url = "https://" + article_image_url
 
-    if article_image_url.startswith(url_domain):
-        article_image_url = "https://" + article_image_url
-    
-    if not article_url.startswith("https"):
-        if not article_url.startswith("/"):
-            article_url = "https://" + url_domain + "/" + article_url
-        else:
-            article_url = "https://" + url_domain + article_url
-    
-    if not article_image_url.startswith("https"):
-        if not article_image_url.startswith("/"):
-            article_image_url = "https://" + url_domain + "/" + article_image_url
-        else:
-            article_image_url = "https://" + url_domain + article_image_url[1:]
+            if not article_image_url.startswith("/"):
+                article_image_url = "https://" + url_domain + "/" + article_image_url
+            else:
+                article_image_url = "https://" + url_domain + article_image_url[1:]
     
     image_extensions = (  
         "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "svg", "webp", "ico",  
@@ -81,6 +82,10 @@ def clean_article_url(article_url, article_image_url, url_domain):
         if item in article_image_url:
             article_image_url = article_image_url.replace(item, url_domain)
 
+
+    logger.info(f"article_url: {article_url}")
+    logger.info(f"article_image_url: {article_image_url}")
+    logger.info(f"url_domain: {url_domain}")
     return article_url, article_image_url
 
 def parse_html(post_html):
