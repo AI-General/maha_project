@@ -9,3 +9,4 @@ input_handler/general_platform/program_log.log
 configuration
 input_handler/Database/__pycache__
 input_handler/twitter/program_log.log
+input_handler/video_download/__pycache__
