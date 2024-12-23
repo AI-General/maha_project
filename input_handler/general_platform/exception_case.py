@@ -5,8 +5,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC  
 import time  
 import sys
-file = open("program_log.log", "w")  
-
 from loguru import logger
 logger.configure(handlers=[{  
     "sink": sys.stdout,  

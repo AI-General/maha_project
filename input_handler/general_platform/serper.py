@@ -9,17 +9,8 @@ from loguru import logger
 
 load_dotenv()
 
-file = open("program_log.log", "w")  
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
-    "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
-            "<level>{level}</level> | "  
-            "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
-            "<yellow>{message}</yellow>",  
-    "colorize": True   
-},
-{  
-    "sink": file,  
     "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
             "<level>{level}</level> | "  
             "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
