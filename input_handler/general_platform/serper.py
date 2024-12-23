@@ -34,7 +34,7 @@ def get_date_from_serper(article_dict):
                 # Format it into "yyyy-mm-dd"  
                 return date_str
             except Exception as e:  
-                print(f"Error parsing the time value for key '{key}': {e}")  
+                logger.error(f"Error parsing the time value for key '{key}': {e}")  
                 return "" 
 
     # If no key with "time" is found  
@@ -55,5 +55,5 @@ def get_article_info_from_serper(url):
       article_dict = json.loads(data.decode("utf-8"))  # Decode response to string and then parse JSON  
       return article_dict["text"], get_date_from_serper(article_dict)
   except Exception as e:  
-    print(f"Error decoding the response: {e}")
+    logger.error(f"Error decoding the response: {e}")
     return "", ""

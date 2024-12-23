@@ -1,9 +1,19 @@
+import sys
 import time
 from urllib.parse import urlparse
 from selenium.webdriver.support.ui import WebDriverWait  
 from selenium.webdriver.support import expected_conditions as EC  
 from selenium.webdriver.common.by import By
 
+from loguru import logger
+logger.configure(handlers=[{  
+    "sink": sys.stdout,  
+    "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
+            "<level>{level}</level> | "  
+            "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
+            "<yellow>{message}</yellow>",  
+    "colorize": True   
+}]) 
 def get_domain_from_url(url) -> str:
     domain = urlparse(url).netloc
     if "www." in domain:
@@ -20,7 +30,7 @@ def siginin(driver, url, domain):
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Play')]"))  
             )  
             play_button.click()  
-            print("Clicked the play button!")
+            logger.info("Clicked the play button!")
         
             WebDriverWait(driver, 10).until(  
                 EC.presence_of_element_located((By.CSS_SELECTOR, "dialog[data-testid='dialog'][open]"))  
@@ -29,14 +39,14 @@ def siginin(driver, url, domain):
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='explicit-content-modal-action-button']"))  
             )  
             sign_in_button.click()  
-            print("Clicked the 'Sign In' button!")
+            logger.info("Clicked the 'Sign In' button!")
             time.sleep(10)
 
             iframe = WebDriverWait(driver, 10).until(  
                 EC.presence_of_element_located((By.CSS_SELECTOR, "#ck-container iframe"))  
             )  
             driver.switch_to.frame(iframe)  
-            print("Switched to the iframe!")    
+            logger.info("Switched to the iframe!")    
 
             parent_container = WebDriverWait(driver, 10).until(  
                 EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-test='onboarding-commerce-form']"))  
@@ -45,21 +55,21 @@ def siginin(driver, url, domain):
             email_input.click()  
             email_input.clear()  
             email_input.send_keys("nickfontana.tech@gmail.com")  
-            print("Email input found and filled!")
+            logger.info("Email input found and filled!")
             time.sleep(5)
                 
             continue_button = WebDriverWait(driver, 10).until(  
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Continue')]"))  
             )  
             continue_button.click()
-            print("Continue button found!")
+            logger.info("Continue button found!")
             time.sleep(10)
 
             iframe = WebDriverWait(driver, 10).until(  
                 EC.presence_of_element_located((By.CSS_SELECTOR, "iframe#aid-auth-widget-iFrame"))  
             )  
             driver.switch_to.frame(iframe)  
-            print("Switched to second iframe!")
+            logger.info("Switched to second iframe!")
             
             password_input = WebDriverWait(driver, 10).until(  
                 EC.presence_of_element_located((By.ID, 'password_text_field'))  
@@ -73,7 +83,7 @@ def siginin(driver, url, domain):
                 EC.element_to_be_clickable((By.ID, 'sign-in'))  
             )  
             sign_in_button.click()  
-            print("Clicked the 'Sign In' button!")  
+            logger.info("Clicked the 'Sign In' button!")  
             time.sleep(15)
             
             driver.get(url)
@@ -81,8 +91,8 @@ def siginin(driver, url, domain):
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Resume')]"))  
             )  
             resume_button.click()  
-            print("Clicked the resume button!")
+            logger.info("Clicked the resume button!")
             time.sleep(15)
 
         except Exception as e:  
-            print(f"An error occurred: {e}")    
+            logger.error(f"An error occurred: {e}")    

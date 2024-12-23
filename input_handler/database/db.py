@@ -33,7 +33,7 @@ def get_single_article(db,article_domain, article_title):
 def check_if_exists(db, article_domain, article):
     """Check if the article already exists in the database."""
     if get_single_article(db,article_domain, article["article_title"]) is not None:
-        print(f"""Article "{article["article_title"]}" already exists\n""")
+        logger.info(f"""Article "{article["article_title"]}" already exists\n""")
         return True
     return False
 
@@ -47,13 +47,13 @@ def insert_article(db, article_domain, article):
         if check_if_exists(db, article_domain, article):
             return
         force_insert_article(db, article_domain, article)
-        print(f"Succeeded to insert article {article['article_title']}")
+        logger.info(f"Succeeded to insert article {article['article_title']}")
         key_to_exclude = "text"  
 
         # Create a new dictionary excluding the specified key  
         article_without_text = {key: value for key, value in article.items() if key != key_to_exclude}  
 
         # Print the new dictionary 
-        print(f"{article_without_text}\n")
+        logger.info(f"{article_without_text}\n")
     except Exception as e:
-        print(f"Failed to insert article {article['article_title']}: {e}")
+        logger.error(f"Failed to insert article {article['article_title']}: {e}")

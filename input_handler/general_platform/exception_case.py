@@ -13,14 +13,6 @@ logger.configure(handlers=[{
             "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
             "<yellow>{message}</yellow>",  
     "colorize": True   
-},
-{  
-    "sink": file,  
-    "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
-            "<level>{level}</level> | "  
-            "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
-            "<yellow>{message}</yellow>",  
-    "colorize": True   
 }])  
 
 # Initialize the WebDriver (Make sure to have the appropriate driver for your browser installed)  
@@ -48,7 +40,7 @@ def get_more_articles(driver, domain):
                 driver.execute_script("arguments[0].style.display = 'none';", blocking_modal)  
                 logger.info("Blocking modal hidden!")  
             except Exception as e:  
-                logger.info(f"No blocking modal detected: {e}")  
+                logger.error(f"No blocking modal detected: {e}")  
 
             # Hide all iframes dynamically (if present)  
             iframes = driver.find_elements(By.TAG_NAME, "iframe")  
@@ -58,7 +50,7 @@ def get_more_articles(driver, domain):
                     logger.info(f"Hiding iframe with ID: {iframe_id}")  
                     driver.execute_script("arguments[0].style.display = 'none';", iframe)  
                 except Exception as e:  
-                    logger.info(f"Could not hide iframe: {e}")  
+                    logger.error(f"Could not hide iframe: {e}")  
 
             # Check if the button is still blocked and force-click using JavaScript  
             try:  
@@ -66,15 +58,15 @@ def get_more_articles(driver, domain):
                 load_more_button.click()  
                 logger.info("Button clicked successfully using Selenium!")  
             except Exception as e:  
-                logger.info(f"Selenium click failed: {e}. Attempting JS-based click...")  
+                logger.error(f"Selenium click failed: {e}. Attempting JS-based click...")  
                 driver.execute_script("arguments[0].click();", load_more_button)  # JS-based click fallback  
-                logger.info("Button clicked successfully using JavaScript!")  
+                logger.error("Button clicked successfully using JavaScript!")  
 
             # Optional: Allow some time for articles to load  
             time.sleep(10)  
 
         except Exception as e:  
-            logger.info(f"An error occurred while loading more articles: {e}")  
+            logger.error(f"An error occurred while loading more articles: {e}")  
             return 0
     elif domain == "nopharmfilm.com":
         time.sleep(3)
@@ -89,7 +81,7 @@ def get_more_articles(driver, domain):
             logger.info("Clicked 'Load more' button successfully.")  
             
         except Exception as e:  
-            logger.info(f"An error occurred while loading more articles: {e}")  
+            logger.error(f"An error occurred while loading more articles: {e}")  
             return 0
     elif domain == "podcasts.apple.com":
         parent_element = driver.find_element(By.XPATH, "//div[@class='link-list svelte-12v9bo2']")  

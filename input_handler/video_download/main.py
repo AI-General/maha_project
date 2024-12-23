@@ -101,7 +101,7 @@ class VideoDownload():
                 _ = ydl.extract_info(url_parsed, download=True)
             return True
         except Exception:
-            logger.info("Not downloaded")
+            logger.error("Not downloaded")
             return False
 
     def download_stream(
@@ -194,7 +194,7 @@ class VideoDownload():
                 return False, file_name
 
         except Exception as e:
-            logger.warning(f"Download failed: {e}")
+            logger.error(f"Download failed: {e}")
             return False, file_name
 
     def download_from_past_stream(
@@ -320,7 +320,7 @@ class VideoDownload():
                                 str(audio_src), file_name, dir_data
                             )
                         except Exception as e:
-                            logger.info(e)
+                            logger.error(e)
 
                         if result == 1:
                             logger.info("Successfully downloaded")
