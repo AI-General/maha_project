@@ -8,10 +8,6 @@ import random
 from dotenv import load_dotenv
 load_dotenv()
 
-# Get the parent directory and append it to the system path  
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
-sys.path.append(parent_dir) 
-
 from selenium import webdriver  
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.service import Service  
@@ -21,7 +17,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-from Database.db import initialize_firestore, insert_article, check_if_exists
+# Get the parent directory and append it to the system path  
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
+sys.path.append(parent_dir) 
+
+from database.db import initialize_firestore, insert_article, check_if_exists
 from serper import get_article_info_from_serper
 from parse_utils import (  
     clean_article_url,  
@@ -31,19 +31,12 @@ from parse_utils import (
     calculate_days_behind,
 )
 from exception_case import get_more_articles
+from twitter.sign_in import x_sign_in
+from twitter.parse_tweet import parse_tweet
 
-file = open("program_log.log", "w")  
 from loguru import logger
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
-    "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
-            "<level>{level}</level> | "  
-            "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
-            "<yellow>{message}</yellow>",  
-    "colorize": True   
-},
-{  
-    "sink": file,  
     "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
             "<level>{level}</level> | "  
             "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
@@ -56,6 +49,10 @@ class Generalscrapper():
         self.cloudflare_exceptions = ["mahanow.org", "tuckercarlson.com"]
         self.view_exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
         self.SCRAPEOPS_API_KEY = os.getenv("SCRAPEOPS_API_KEY")
+
+        self.db_general = initialize_firestore("Firebase_Credentials_General_Platform", app_name="General_Platform")
+        self.db_video = initialize_firestore("Firebase_Credentials_Video_Platform", app_name="Video_Platform")
+        self.db_x = initialize_firestore("Firebase_Credentials_X_Platform", app_name="X_Platform")
 
     def setup_driver(self, url):
         if get_domain_from_url(url) in self.cloudflare_exceptions:
@@ -86,7 +83,7 @@ class Generalscrapper():
             return driver
             
         chrome_options = webdriver.ChromeOptions()  
-        # chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
+        chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36')  
         chrome_options.add_argument('--disable-popup-blocking')  # Disable popup blocks  
         chrome_options.add_argument('--disable-background-timer-throttling')  # Disable background throttling  
@@ -103,6 +100,24 @@ class Generalscrapper():
         driver = webdriver.Chrome(service=webdriver_service, options = chrome_options)
         return driver
 
+    def get_one_tweet_data(self, element, article_domain):
+        tweet_data = []
+        post_html = element.get_attribute("outerHTML")  
+
+        tweet_data = parse_html(post_html)
+        if tweet_data["article_url"] and tweet_data["article_title"]:
+            # Clean title of article
+            sanitized_title = re.sub(r'[/*~[\]<>]', '', tweet_data["article_title"])  
+            sanitized_title = sanitized_title.strip() 
+            tweet_data["article_title"] = sanitized_title
+
+            # logger.info("Found actual article_information")
+            tweet_data["article_url"], tweet_data["article_image_url"] = clean_article_url(tweet_data["article_url"], tweet_data["article_image_url"], article_domain)
+        else:
+            tweet_data = []
+
+        return tweet_data
+    
     def get_one_article_data(self, element, article_domain):
         article_data = []
         upper_trying_count = 0
@@ -129,7 +144,7 @@ class Generalscrapper():
                 try: 
                     element = element.find_element(By.XPATH, './..') 
                 except Exception as e:
-                    logger.info(f"Couldn't find any parent element: {e}")
+                    logger.error(f"Couldn't find any parent element: {e}")
                     break
                 with open("log.txt", "a") as f:
                     f.write(f"\nDidn't found, dive deep one level more- {upper_trying_count}\n")
@@ -137,7 +152,58 @@ class Generalscrapper():
                 continue
         
         return article_data
+    
+    def get_tweet_data_from_one_page(self, driver, db, url, parse_type, days_behind):
+        logger.info(f"\033[31m We are handling new X url. Current url: {url}\033[0m")
+        self.page_consider = 0
+        article_domain = get_domain_from_url(url)
 
+        username = url.split('/')[-1] if url.startswith("https://x.com/") else None  
+        elements = driver.find_elements(By.XPATH, parse_type) 
+        time.sleep(10)
+        WebDriverWait(driver, 20).until(lambda d: d.execute_script("return document.readyState") == "complete")   
+
+        driver.save_screenshot(f"screenshot/{username}.png")
+        elements = driver.find_elements(By.XPATH, parse_type)  
+
+        if elements:  
+            logger.info(f"len(elements): {len(elements)}")  
+            for element in elements:         
+                if self.consider_exit == 50:
+                    logger.info("Exiting loop after 50 empty elements")
+                    self.page_consider = 0
+                    break
+
+                tweet_data = self.get_one_tweet_data(element, article_domain) 
+                if tweet_data == []:
+                    self.consider_exit += 1
+                    logger.info("Couldn't find actual tweet from the element")                    
+                    continue
+            
+                if tweet_data["article_url"] and tweet_data["article_title"]:
+                    if check_if_exists(db, username, tweet_data):
+                        self.consider_exit += 1
+                        continue
+
+                    temp_age = tweet_data["article_age"]
+                    tweet_data["article_age"], tweet_data["text"] = parse_tweet(tweet_data["article_url"])
+                
+                    if tweet_data["article_age"] == "":
+                        logger.info(f"Failed to get article age using tweet parge function. Trying to get article age using post date - {temp_age}")
+                        tweet_data["article_age"] = parse_post_date(temp_age)
+                        
+                    if tweet_data["article_age"] != "":
+                        tweet_data["article_age"] = parse_post_date(tweet_data["article_age"])
+                        if calculate_days_behind(tweet_data["article_age"]) > days_behind:
+                            self.consider_exit += 1
+                            logger.info(f"Article is older than {days_behind} days. Skipping\n")
+                            continue
+
+                    insert_article(db, username, tweet_data)               
+                    self.page_consider += 1
+    
+        return self.page_consider
+                
     def get_article_data_from_one_page(self, driver, db, url, view_type, parse_type, days_behind): 
         logger.info(f"\033[31m We are handling new url in same domain. Current url: {url}\033[0m")
         self.page_consider = 0
@@ -145,15 +211,14 @@ class Generalscrapper():
         if view_type not in self.exception_list:
             driver.get(url)  
         article_domain = get_domain_from_url(url)
-
         logger.info(f"Current URL - {url}")
         logger.info(f"Our main domain is - {article_domain}")
         time.sleep(10)
         WebDriverWait(driver, 20).until(lambda d: d.execute_script("return document.readyState") == "complete")  
 
-    # try:  
-        elements = driver.find_elements(By.XPATH, parse_type)   
-        
+        driver.save_screenshot(f"screenshot/{article_domain}.png")
+        elements = driver.find_elements(By.XPATH, parse_type)  
+
         # If elements are found, process them  
         if elements:  
             logger.info(f"len(elements): {len(elements)}")  
@@ -269,7 +334,12 @@ class Generalscrapper():
                 time.sleep(10)  # Adjust this value based on the site's load time  
                 
                 # Extract articles from the current page  
-                self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)  
+                if get_domain_from_url(url) == "x.com":
+                    logger.info("We are running get_tweet_data_from_one_page function")
+                    self.page_consider = self.get_tweet_data_from_one_page(driver, db, url, parse_type, days_behind)  
+                else:
+                    self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)  
+
                 if self.page_consider == 0:
                     logger.info(f"We can't find any new article in page {page_num}. Stop searching and choice is set as scroll\n")
                     break
@@ -304,16 +374,12 @@ class Generalscrapper():
     
     def main(self):
         inputs = [  
-            {"url": "https://depopulation.news/all-posts/", "view_type": "page1", "parse_type": "//div[@class='Post']"},   
+            {"url": "https://x.com/ResisttheMS", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
         ]
         for input in inputs:
-            db = initialize_firestore("Firebase_Credentials_General_Platform")
-            try:
-                if input["article_type"] == "video":
-                    db = initialize_firestore("Firebase_Credentials_Video_Platform")
-            except:
-                pass
+            db = self.db_general
             url = input["url"]
+
             view_type = input["view_type"]
             parse_type = input["parse_type"]
             article_domain = get_domain_from_url(url)
@@ -322,9 +388,25 @@ class Generalscrapper():
                 view_type = "exception"
                 logger.info("We found exception cases!!!")
             
+            logger.info(article_domain)
             logger.info(f"\033[1;36m We are handling Completely different new url. Current url: {url}\033[0m")  
+            
             driver = self.setup_driver(url)
-
+            try:
+                if input["article_type"] == "video":
+                    logger.info("DB is set as Video.")
+                    db = self.db_video
+            except:
+                logger.info("No Video DB is set.")
+            
+            if article_domain == "x.com":
+                logger.info("DB is set as X.")
+                db = self.db_x
+                x_sign_in(driver)
+                driver.save_screenshot("screenshot/X-Sign-in.png")
+            else:
+                logger.info("No X DB is set.")
+            
             self.consider_exit = 0
             whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=200)
 
