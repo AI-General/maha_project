@@ -54,6 +54,6 @@ def insert_article(db, article_domain, article):
         article_without_text = {key: value for key, value in article.items() if key != key_to_exclude}  
 
         # Print the new dictionary 
-        logger.info(f"{article_without_text}\n")
+        print(f"{article_without_text}\n")
     except Exception as e:
         logger.error(f"Failed to insert article {article['article_title']}: {e}")
