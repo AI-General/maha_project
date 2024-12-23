@@ -8,25 +8,15 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 
 load_dotenv()
-def initialize_firestore(firebase_project_id):
+
+def initialize_firestore(firebase_project_id, app_name=None):  
     GOOGLE_APPLICATION_CREDENTIALS = os.getenv(f"{firebase_project_id}")
     cred = credentials.Certificate(GOOGLE_APPLICATION_CREDENTIALS)
+    app = firebase_admin.initialize_app(cred, name=app_name)  # Pass a unique app_name  
+    return firestore.client(app)  
 
-    app = firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    return db
-
-file = open("program_log.log", "w")  
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
-    "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
-            "<level>{level}</level> | "  
-            "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
-            "<yellow>{message}</yellow>",  
-    "colorize": True   
-},
-{  
-    "sink": file,  
     "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
             "<level>{level}</level> | "  
             "<cyan>{module}</cyan>:<cyan>{function}</cyan> | "  
