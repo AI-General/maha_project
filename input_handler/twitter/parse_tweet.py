@@ -92,10 +92,13 @@ def parse_tweet(url:str) -> Dict:
             elif "duration_minutes" in key:
                 result["poll"]["duration"] = value["string_value"]
         print(result)
-        return result["created_at"], result["text"], result["attached_media"][0] 
+        if not result["attached_media"]:
+            result["attached_media"] = [""]
+        
+        return result["created_at"], result["text"],  result["attached_media"][0]
     except Exception as e:
         logger.error(f"Error occured while parsing tweet- {e}")
-        return "", ""
+        return "", "", ""
 
 def scrape_profile(url: str) -> dict:
     """
@@ -128,6 +131,5 @@ def scrape_profile(url: str) -> dict:
             return data['data']['user']['result']
 
 if __name__ == "__main__":
-    url = "https://x.com/KarluskaP/status/1869417153486852348"
-
+    url = "https://x.com/Red_Pill_US/status/1865086858784575807"
     parse_tweet(url)
