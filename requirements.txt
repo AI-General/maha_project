@@ -32,6 +32,7 @@ urllib3==2.2.3
 websocket-client==1.8.0
 wsproto==1.2.0
 selenium-stealth
+imap-tools
 
 ###
 aiohappyeyeballs==2.4.4
