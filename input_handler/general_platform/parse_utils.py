@@ -30,6 +30,13 @@ def get_domain_from_url(url) -> str:
 
     return domain
 
+def convert_twitter_media_url(url):  
+    base_url = url.split('?')[0]  
+    if not base_url.endswith(".jpg"):  
+        base_url += ".jpg"  
+    
+    return base_url
+
 def check_url_status(url):  
     try:  
         response = requests.get(url, timeout=5)  # Timeout set to 5 seconds  
@@ -63,6 +70,12 @@ def clean_article_url(article_url, article_image_url, url_domain):
             else:
                 article_image_url = "https://" + url_domain + article_image_url[1:]
     
+
+    if article_image_url.startswith("https://pbs.twimg.com/media/"):
+        logger.info("Changing Twitter urls to jpg format")
+        if not article_image_url.endswith(".jpg"):
+            article_image_url = convert_twitter_media_url(article_image_url)
+
     image_extensions = (  
         "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "svg", "webp", "ico",  
         "jfif", "pjpeg", "pjp", "avif", "heif", "heic", "raw", "cr2", "nef", "orf",  
@@ -81,7 +94,6 @@ def clean_article_url(article_url, article_image_url, url_domain):
             article_url = article_url.replace(item, url_domain)
         if item in article_image_url:
             article_image_url = article_image_url.replace(item, url_domain)
-
 
     logger.info(f"article_url: {article_url}")
     logger.info(f"article_image_url: {article_image_url}")
@@ -162,7 +174,7 @@ def parse_post_date(date_string):
         parse_old_prompt = file.read()
 
     response = openai.ChatCompletion.create(  
-        model="gpt-4o-mini",  
+        model="gpt-4o-2024-11-20",  
         messages=[  
             {  
                 "role": "system",  
@@ -181,7 +193,7 @@ def parse_post_date(date_string):
         return response_string
     
     response = openai.ChatCompletion.create(  
-        model="gpt-4o-mini",  
+        model="gpt-4o-2024-11-20",  
         messages=[  
             {  
                 "role": "system",  
