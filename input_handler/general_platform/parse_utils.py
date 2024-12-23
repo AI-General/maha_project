@@ -164,6 +164,71 @@ def parse_html(post_html):
         
     return article_data
 
+
+def twitter_parse_html(post_html):
+    openai.api_key = os.getenv('OPENAI_API_KEY')  
+
+    with open("prompt/twitter_parse_html.txt", "r") as file:  
+        parse_html_prompt = file.read()
+
+    with open("log.txt", "a") as f:
+        f.write("\n************************************str(post_html)\n************************************\n")
+
+    response = openai.ChatCompletion.create(  
+        model="gpt-4o-mini",   
+        messages=[  
+            {  
+                "role": "system",  
+                "content": f"{parse_html_prompt}"  # Pass the HTML parsing instructions to the system  
+            },  
+            {  
+                "role": "user",  
+                "content": f"target_html_contents - \n\n{str(post_html)}"  # Pass the HTML content for parsing  
+            }  
+        ],  
+        response_format={  
+            "type": "json_schema",  
+            "json_schema": {  
+                "name": "json_schema", 
+                "schema": {  
+                    "type": "object", 
+                    "properties": {  
+                        "article_title": {  
+                            "type": "string",  
+                            "description": "The title of the article"  
+                        },  
+                        "article_url": {  
+                            "type": "string",  
+                            "description": "The URL of the article"  
+                        },  
+                        "article_image_url": {  
+                            "type": "string",  
+                            "description": "The image URL for the tweet"  
+                        },  
+                        "short_article_description": {  
+                            "type": "string",  
+                            "description": "A short description of the tweet"  
+                        },  
+                        "article_age": {  
+                            "type": "string",  
+                            "description": "The age of the article (e.g., how many days ago it was published)"  
+                        }  
+                    },  
+                    "required": [  # Specify which properties are mandatory  
+                        "article_title",  
+                        "article_url",  
+                        "article_image_url",  
+                        "article_description",  
+                        "article_age"  
+                    ]  
+                }  
+            }  
+        }  
+    )
+    tweet_data = json.loads(response.choices[0].message.content)
+        
+    return tweet_data
+
 def parse_post_date(date_string):
     openai.api_key = os.getenv("OPENAI_API_KEY")  
     

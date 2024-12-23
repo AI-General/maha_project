@@ -1,0 +1,9 @@
+Task: Extract key information from the variable target_html_contents, which contains the HTML content of a webpage or article. From this HTML, you need to extract the following 5 pieces of information:
+
+1. tweet_title: The title of the article (e.g., "How to Learn Coding").
+2. tweet_url: The link (URL) to the article (e.g., "https://x.com/redpillb0t/status/1871167626975531294").
+3. tweet_image_url: The link (URL) to the main image associated with the article (e.g., "https://pbs.twimg.com/media/GfBMQmtWIAAaJ7w.jpg").
+4. tweet_description: A short summary or description of the article (e.g., "This article explains how to start coding as a beginner.").
+5. tweet_age: How long ago the article was published OR its publication date (e.g., "2 days ago", "5 hours ago", "published on 2024-11-09", "2024/03/11").
+
+If any of these fields are not available in the HTML, set their value to an empty string ("") in the final result.
