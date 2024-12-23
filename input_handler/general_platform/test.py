@@ -4,6 +4,7 @@ import json
 import re
 import os
 import random
+import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -116,6 +117,11 @@ class Generalscrapper():
         else:
             tweet_data = []
 
+        if tweet_data == []:  
+            with open("log.txt", "a") as f:  
+                f.write("Failed post html\n")  
+                f.write(post_html + "\n")  # Assuming `post_html` is a string variable
+
         return tweet_data
     
     def get_one_article_data(self, element, article_domain):
@@ -132,7 +138,7 @@ class Generalscrapper():
             article_data = parse_html(post_html)
             if article_data["article_url"] and article_data["article_title"]:
                 # Clean title of article
-                sanitized_title = re.sub(r'[/*~[\]<>]', '', article_data["article_title"])  
+                sanitized_title = re.sub(r'[/*~[\]<>.]', '', article_data["article_title"])  
                 sanitized_title = sanitized_title.strip() 
                 article_data["article_title"] = sanitized_title
 
@@ -158,7 +164,9 @@ class Generalscrapper():
         self.page_consider = 0
         article_domain = get_domain_from_url(url)
 
-        username = url.split('/')[-1] if url.startswith("https://x.com/") else None  
+        username = url.split('/')[-1] if url.startswith("https://x.com/") else "" 
+        if username == "": 
+            username = url.split('/')[-1] if url.startswith("https://twitter.com/") else None  
         elements = driver.find_elements(By.XPATH, parse_type) 
         time.sleep(10)
         WebDriverWait(driver, 20).until(lambda d: d.execute_script("return document.readyState") == "complete")   
@@ -179,6 +187,12 @@ class Generalscrapper():
                     self.consider_exit += 1
                     logger.info("Couldn't find actual tweet from the element")                    
                     continue
+                
+                if tweet_data["article_url"].startswith("http://t.co/"):
+                    logger.info(f"Found t.co url Changing to profile url - {tweet_data['article_url']}")
+                    response = requests.head(tweet_data["article_url"], allow_redirects=True)  
+                    tweet_data["article_url"] = response.url  
+                    logger.info(f"Changed t.co url to profile url - {tweet_data['article_url']}")
             
                 if tweet_data["article_url"] and tweet_data["article_title"]:
                     if check_if_exists(db, username, tweet_data):
@@ -186,7 +200,7 @@ class Generalscrapper():
                         continue
 
                     temp_age = tweet_data["article_age"]
-                    tweet_data["article_age"], tweet_data["text"] = parse_tweet(tweet_data["article_url"])
+                    tweet_data["article_age"], tweet_data["text"], temp_image_url = parse_tweet(tweet_data["article_url"])
                 
                     if tweet_data["article_age"] == "":
                         logger.info(f"Failed to get article age using tweet parge function. Trying to get article age using post date - {temp_age}")
@@ -198,7 +212,10 @@ class Generalscrapper():
                             self.consider_exit += 1
                             logger.info(f"Article is older than {days_behind} days. Skipping\n")
                             continue
-
+                            
+                    if tweet_data["article_image_url"] == "":
+                        tweet_data["article_image_url"] = temp_image_url
+                        
                     insert_article(db, username, tweet_data)               
                     self.page_consider += 1
     
@@ -334,7 +351,7 @@ class Generalscrapper():
                 time.sleep(10)  # Adjust this value based on the site's load time  
                 
                 # Extract articles from the current page  
-                if get_domain_from_url(url) == "x.com":
+                if get_domain_from_url(url) == "x.com" or get_domain_from_url(url) == "twitter.com":
                     logger.info("We are running get_tweet_data_from_one_page function")
                     self.page_consider = self.get_tweet_data_from_one_page(driver, db, url, parse_type, days_behind)  
                 else:
@@ -373,45 +390,107 @@ class Generalscrapper():
         driver.quit()
     
     def main(self):
-        inputs = [  
-            {"url": "https://x.com/ResisttheMS", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+        inputs = [
+            # {"url": "https://x.com/ResisttheMS", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"}, 
+            # {"url": "https://x.com/tpvsean", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/kennedyforthew", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/okhprbears", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/GlobalHProject", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/fluorideaction", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/paulsaladinomd", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://x.com/theinsiderpaper", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/disclosetv", "view_type" :"scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/childrenshd", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/TuckerCarlson", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/real1fisherman", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/Red_Pill_US", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/redpillb0t", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/MAGAResource", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/jillianmichaels", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/in2thinair", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # {"url": "https://twitter.com/RobertKennedyJr", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/calleymeans", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/JillianMichaels", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/thefoodbabe", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/maxlugavere", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/ChrisPalmerMD", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/jasonkarp", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/nicoleshanahan", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/AmaryllisFox", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/delbigtree", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/patriciaduggan", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/russvought", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/ericteetsel", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/rachelsemmel", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/JeffClarkUS", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/HCordasco", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/KenCuccinelli", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/paigeagostin", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/DanKowalski", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://twitter.com/maryhollandnyc", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/DrJBhattacharya", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/delbigtree", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/jamelholley", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/stkirsch", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/aaronsirisg", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/MdBreathe", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/doge", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/yesmaam74", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/reformpharmanow", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/rfkjrpodcast", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/av24org", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/newstart_2024", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/school0fhealth", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/ifixhearts", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/plantparadise7", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/maryhollandnyc", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/standforhealth1", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/bryanardisx", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
         ]
+        # Create a new file (or overwrite if it already exists)  
+        with open("log.txt", "w") as file:  
+            file.write("This is a log file.\n")  
+
         for input in inputs:
-            db = self.db_general
-            url = input["url"]
-
-            view_type = input["view_type"]
-            parse_type = input["parse_type"]
-            article_domain = get_domain_from_url(url)
-
-            if article_domain in self.view_exceptions:
-                view_type = "exception"
-                logger.info("We found exception cases!!!")
-            
-            logger.info(article_domain)
-            logger.info(f"\033[1;36m We are handling Completely different new url. Current url: {url}\033[0m")  
-            
-            driver = self.setup_driver(url)
             try:
-                if input["article_type"] == "video":
-                    logger.info("DB is set as Video.")
-                    db = self.db_video
-            except:
-                logger.info("No Video DB is set.")
-            
-            if article_domain == "x.com":
-                logger.info("DB is set as X.")
-                db = self.db_x
-                x_sign_in(driver)
-                driver.save_screenshot("screenshot/X-Sign-in.png")
-            else:
-                logger.info("No X DB is set.")
-            
-            self.consider_exit = 0
-            whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=200)
+                db = self.db_general
+                url = input["url"]
 
-            with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:
-                json.dump(whole_article_data, f, ensure_ascii=False, indent=4)
+                view_type = input["view_type"]
+                parse_type = input["parse_type"]
+                article_domain = get_domain_from_url(url)
+
+                if article_domain in self.view_exceptions:
+                    view_type = "exception"
+                    logger.info("We found exception cases!!!")
+                
+                logger.info(article_domain)
+                logger.info(f"\033[1;36m We are handling Completely different new url. Current url: {url}\033[0m")  
+                
+                driver = self.setup_driver(url)
+                try:
+                    if input["article_type"] == "video":
+                        logger.info("DB is set as Video.")
+                        db = self.db_video
+                except:
+                    logger.info("No Video DB is set.")
+                
+                if article_domain == "x.com" or "twitter.com":
+                    logger.info("DB is set as X.")
+                    db = self.db_x
+                    x_sign_in(driver)
+                    driver.save_screenshot("screenshot/X-Sign-in.png")
+                else:
+                    logger.info("No X DB is set.")
+                
+                self.consider_exit = 0
+                whole_article_data = self.get_whole_article_data(driver, db, url, view_type, parse_type, days_behind=7)
+
+                with open(f"output/{article_domain}.json", 'w', encoding='utf-8') as f:
+                    json.dump(whole_article_data, f, ensure_ascii=False, indent=4)
+            except Exception as e:
+                logger.error("We have a  error in this url")
+                continue
 
 if __name__ == "__main__":
     general_scrapper = Generalscrapper()
