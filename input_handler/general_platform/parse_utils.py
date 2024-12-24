@@ -73,7 +73,7 @@ def clean_article_url(article_url, article_image_url, url_domain):
             if not article_image_url.startswith("/"):
                 article_image_url = "https://" + url_domain + "/" + article_image_url
             else:
-                logger.info("We appended / to article_image_url")
+                logger.error("We appended / to article_image_url")
                 article_image_url = "https://" + url_domain + article_image_url[1:]
 
     # If article_image_url starts with "https://pbs.twimg.com/media/" convert not properly formatted Twitter media URL to JPEG
@@ -90,7 +90,7 @@ def clean_article_url(article_url, article_image_url, url_domain):
         "x3f", "webp2"  
     )  
     if not article_image_url.lower().endswith(image_extensions):  
-        logger.info(f"Currently article_image_url is not an image - {article_image_url}. Set as empty")
+        logger.info(f"Current article_image_url is not an image - {article_image_url}. Set as empty")
         article_image_url = ""
 
     # Change all instances of "www.example.com", "yourwebsite.com", "examplewebsite.com", "example.com", "website.com", "platform.com" to url_domain
@@ -103,7 +103,6 @@ def clean_article_url(article_url, article_image_url, url_domain):
 
     logger.info(f"After cleaning article_url: {article_url}")
     logger.info(f"After cleaning article_image_url: {article_image_url}")
-    logger.info(f"url_domain: {url_domain}")
     # print as while for debugging
     logger.info("\033[97m*********************************************************\033[0m")  
     return article_url, article_image_url
