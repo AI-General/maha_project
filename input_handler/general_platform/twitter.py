@@ -6,6 +6,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import random
 import sys
+import requests
 
 from imap_tools import MailBox,AND
 
@@ -42,7 +43,7 @@ logger.configure(handlers=[{
 }])  
 
 def is_twitter_url(url):
-    twitter_domains = ["twitter.com", "https://x.com", "https://t.co"]  
+    twitter_domains = ["twitter.com", "https://x.com", "https://t.co", "http://t.co", "http://x.com"]
     for domain in twitter_domains:  
         if domain in url:  
             return True  
@@ -50,14 +51,11 @@ def is_twitter_url(url):
 
 def check_latest_email():
     with MailBox("imap.gmail.com").login(email_user,email_pass,'INBOX') as mailbox:
-        logger.info("1")
         emails=list(mailbox.fetch(AND(seen=False),limit=1,reverse=True))
-        logger.info("2")
 
         if len(emails)==0:
             return None,None,None
         
-        logger.info("3")
         return emails[0]
     
 def x_sign_in(driver):
@@ -167,6 +165,35 @@ def scrape_tweet(url: str) -> dict:
             data = xhr.json()
             return data['data']['tweetResult']['result']
 
+def resolve_tco_url(article_url, max_retries=3, timeout=10):  
+    attempts = 0  
+    resolved = False  
+
+    while attempts < max_retries and not resolved:  
+        try:  
+            # Attempt to resolve the URL using a HEAD request  
+            response = requests.head(article_url, allow_redirects=True, timeout=timeout)  
+            
+            if response.status_code == 200:  # Successful resolution  
+                resolved_url = response.url  
+                logger.info(f"Changed t.co URL to profile URL - {resolved_url}")  
+                resolved = True  
+                return resolved_url  
+            else:  
+                # Log unexpected HTTP status code  
+                logger.info(f"Unexpected status code when resolving URL: {response.status_code}")  
+
+        except Exception as e:  
+            # Log any errors that occur during URL resolution  
+            logger.error(f"Error resolving t.co URL: {e}")  
+
+        finally:  
+            attempts += 1  
+
+    if not resolved:  
+        logger.error("Unable to resolve t.co URL after max attempts. Keeping original URL.")  
+        return article_url
+    
 def parse_tweet(url: str) -> Dict: 
     logger.info("We are running parse_tweet function!")  
 

@@ -1,3 +1,5 @@
+# test.py
+# import default libraries
 import time  
 import sys
 import json  
@@ -6,9 +8,11 @@ import os
 import random
 import requests
 
+# import environment libraries
 from dotenv import load_dotenv
 load_dotenv()
 
+# import selenium related libraries
 from selenium import webdriver  
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.service import Service  
@@ -18,23 +22,21 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# Get the parent directory and append it to the system path  
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  
-sys.path.append(parent_dir) 
-
-from database.db import initialize_firestore, insert_article, check_if_exists
+# import funtions from other files
+from db import initialize_firestore, insert_article, check_if_exists
 from serper import get_article_info_from_serper
 from parse_utils import (  
     clean_article_url,  
     get_domain_from_url,
     parse_html,  
-    twitter_parse_html,
+    parse_twitter_html,
     parse_post_date,  
     calculate_days_behind,
 )
 from exception_case import get_more_articles
-from twitter import x_sign_in, is_twitter_url, parse_tweet
+from twitter import x_sign_in, is_twitter_url, parse_tweet, resolve_tco_url
 
+# import logging libraries
 from loguru import logger
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
@@ -51,25 +53,26 @@ class Generalscrapper():
         self.view_exceptions = ["theamericanconservative.com", "nopharmfilm.com"]
         self.SCRAPEOPS_API_KEY = os.getenv("SCRAPEOPS_API_KEY")
 
+        # initialize firebase
         self.db_general = initialize_firestore("Firebase_Credentials_General_Platform", app_name="General_Platform")
         self.db_video = initialize_firestore("Firebase_Credentials_Video_Platform", app_name="Video_Platform")
         self.db_x = initialize_firestore("Firebase_Credentials_X_Platform", app_name="X_Platform")
 
     def setup_driver(self, url):
+        # Handle Cloudflare url
         if get_domain_from_url(url) in self.cloudflare_exceptions:
             logger.info("Cloudflare protected")
             options = webdriver.ChromeOptions()
-            #user-agent rotation
             user_agents = [
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36",
             ]
-            #random user agent
             user_agent = random.choice(user_agents)
-            #add the user agent
             options.add_argument(f"user-agent={user_agent}")
             options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--blink-settings=imagesEnabled=false")
             # options.add_argument("--headless")
-            #set up proxy
+            
+            # set up proxy
             proxy_options = {
                 "proxy": {
                     "http": f"http://scrapeops.headless_browser_mode=true:{self.SCRAPEOPS_API_KEY}@proxy.scrapeops.io:5353",
@@ -77,14 +80,11 @@ class Generalscrapper():
                     "no_proxy": "localhost:127.0.0.1",
                 }
             }
-            #disable loading images for faster crawling
-            options.add_argument("--blink-settings=imagesEnabled=false")
-            #initialize the WebDriver with options
             driver = webdriver.Chrome(options=options, seleniumwire_options=proxy_options)
             return driver
-            
-        chrome_options = webdriver.ChromeOptions()  
-        chrome_options.add_argument('--headless')  # Run in headless mode (no browser window)  
+
+        # Handle ordinal url    
+        chrome_options = webdriver.ChromeOptions()   
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36')  
         chrome_options.add_argument('--disable-popup-blocking')  # Disable popup blocks  
         chrome_options.add_argument('--disable-background-timer-throttling')  # Disable background throttling  
@@ -96,6 +96,7 @@ class Generalscrapper():
         chrome_options.add_argument('--window-size=1920,1080')  # Set browser window size (needed for responsive web pages)  
         chrome_options.add_argument('--start-maximized')  # Ensure full content is visible  
         chrome_options.add_argument('--disable-extensions')  # Disable extensions for stability  
+        chrome_options.add_argument('--headless')  # Run in headless mode (no browser window) 
         
         webdriver_service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=webdriver_service, options = chrome_options)
@@ -104,15 +105,14 @@ class Generalscrapper():
     def get_one_tweet_data(self, element, article_domain):
         tweet_data = []
         post_html = element.get_attribute("outerHTML")  
+        tweet_data = parse_twitter_html(post_html)
 
-        tweet_data = twitter_parse_html(post_html)
         if tweet_data["article_url"] and tweet_data["article_title"]:
             # Clean title of article
-            sanitized_title = re.sub(r'[/*~[\]<>]', '', tweet_data["article_title"])  
+            sanitized_title = re.sub(r'[/*~[\]<>.]', '', tweet_data["article_title"])  
             sanitized_title = sanitized_title.strip() 
             tweet_data["article_title"] = sanitized_title
 
-            # logger.info("Found actual article_information")
             tweet_data["article_url"], tweet_data["article_image_url"] = clean_article_url(tweet_data["article_url"], tweet_data["article_image_url"], article_domain)
         else:
             tweet_data = []
@@ -128,21 +128,24 @@ class Generalscrapper():
         article_data = []
         upper_trying_count = 0
         while True:
+            # If we've tried 5 times to go to the upper level, break the loop
             if upper_trying_count == 5:
                 logger.info("Tried 5 times to upper level. But couldn't find actual article")
                 break            
+            
+            # Get the outer HTML of the element and parsing it.
             try:            
                 post_html = element.get_attribute("outerHTML")  
             except Exception as e:
                 post_html = ""            
             article_data = parse_html(post_html)
             if article_data["article_url"] and article_data["article_title"]:
-                # Clean title of article
+                # Clean title of article that could be the document of firebase
                 sanitized_title = re.sub(r'[/*~[\]<>.]', '', article_data["article_title"])  
                 sanitized_title = sanitized_title.strip() 
                 article_data["article_title"] = sanitized_title
 
-                # logger.info("Found actual article_information")
+                # Clean article url and article_image_url
                 article_data["article_url"], article_data["article_image_url"] = clean_article_url(article_data["article_url"], article_data["article_image_url"], article_domain)
                 break
             else:
@@ -152,8 +155,7 @@ class Generalscrapper():
                 except Exception as e:
                     logger.error(f"Couldn't find any parent element: {e}")
                     break
-                with open("log.txt", "a") as f:
-                    f.write(f"\nDidn't found, dive deep one level more- {upper_trying_count}\n")
+                logger.error(f"\nDidn't found, dive deep one level more- {upper_trying_count}\n")
                 upper_trying_count += 1
                 continue
         
@@ -161,157 +163,161 @@ class Generalscrapper():
     
     def get_tweet_data_from_one_page(self, driver, db, url, parse_type, days_behind):
         logger.info(f"\033[31m We are handling new X url. Current url: {url}\033[0m")
+
         self.page_consider = 0
         article_domain = get_domain_from_url(url)
-
         username = url.split('/')[-1] if url.startswith("https://x.com/") else "" 
         if username == "": 
             username = url.split('/')[-1] if url.startswith("https://twitter.com/") else None  
-        elements = driver.find_elements(By.XPATH, parse_type) 
+
         time.sleep(10)
         WebDriverWait(driver, 20).until(lambda d: d.execute_script("return document.readyState") == "complete")   
-
-        driver.save_screenshot(f"screenshot/{username}.png")
         elements = driver.find_elements(By.XPATH, parse_type)  
 
         if elements:  
             logger.info(f"len(elements): {len(elements)}")  
-            for element in elements:         
-                if self.consider_exit == 50:
-                    logger.info("Exiting loop after 50 empty elements")
-                    self.page_consider = 0
-                    break
-                
-                attempt = 0  # Initialize attempt counter  
-                while attempt < 3:  # Try extracting the tweet data up to 3 times  
-                    tweet_data = self.get_one_tweet_data(element, article_domain)  
-                    if tweet_data != []:  # If successful, exit the retry loop  
-                        break  
-                    attempt += 1  # Increment the attempt counter if no success  
-                    logger.info(f"Couldn't find actual tweet from the element. Attempt: {attempt}")
-                
-                if attempt == 3:  # If all 3 attempts fail, handle failure  
-                    self.consider_exit += 1  
-                    logger.info("Couldn't find actual tweet from the element after 3 attempts")  
-                    continue  # Skip to the next element  
-                                
-                if tweet_data["article_url"].startswith("https://t.co/") or tweet_data["article_url"].startswith("http://t.co/"):  
-                    logger.info("<blue>Found t.co url, attempting to change to profile URL - {}</blue>", tweet_data["article_url"])  
+            for element in elements:
+                try:         
+                    if self.consider_exit == 50:
+                        logger.error("Exiting loop after 50 empty elements")
+                        self.page_consider = 0
+                        break
                     
-                    max_retries = 3  # Maximum number of attempts  
-                    attempts = 0  
-                    resolved = False  
-
-                    while attempts < max_retries and not resolved:  
-                        try:  
-                            response = requests.head(tweet_data["article_url"], allow_redirects=True, timeout=10)  
-                            if response.status_code == 200:  
-                                # Successfully resolved the URL  
-                                tweet_data["article_url"] = response.url  
-                                logger.info(f"Changed t.co URL to profile URL - {tweet_data['article_url']}")  
-                                resolved = True  
-                            else:  
-                                logger.warning(f"Unexpected status code when resolving URL: {response.status_code}")  
-                        except Exception as e:  
-                            # Log the error and increment the attempt counter  
-                            logger.error(f"Error resolving t.co URL: {e}")  
-                        finally:  
-                            attempts += 1  
+                    attempt = 0  # Initialize attempt counter  
+                    while attempt < 3:  # Try extracting the tweet data up to 3 times  
+                        try:
+                            tweet_data = self.get_one_tweet_data(element, article_domain) 
+                        except Exception as e:
+                            tweet_data = [] 
+                        if tweet_data != []:  # If successful, exit the retry loop  
+                            break  
+                        attempt += 1  # Increment the attempt counter if no success  
+                        logger.info(f"Couldn't find actual tweet from the element. Attempt: {attempt}")
                     
-                    # If unable to resolve after max retries, log a failure message  
-                    if not resolved:  
-                        logger.warning("Unable to resolve t.co URL after 3 attempts. Keeping original URL.")  
+                    if attempt == 3:  # If all 3 attempts fail, handle failure  
+                        self.consider_exit += 1  
+                        logger.error("Couldn't find actual tweet from the element after 3 attempts")  
+                        continue  # Skip to the next element  
+                                    
+                    if tweet_data["article_url"].startswith("https://t.co/") or tweet_data["article_url"].startswith("http://t.co/"):  
+                        logger.info("\033[94mFound t.co url, attempting to change to profile URL - {}\033[0m", tweet_data   ["article_url"])  
+                        tweet_data["article_url"] = resolve_tco_url(tweet_data["article_url"])
 
-                if tweet_data["article_url"] and tweet_data["article_title"]:
-                    if check_if_exists(db, username, tweet_data):
-                        self.consider_exit += 1
-                        continue
-
-                    temp_age = tweet_data["article_age"]
-                    if is_twitter_url(tweet_data["article_url"]):                        
-                        tweet_data["article_age"], tweet_data["text"], temp_image_url = parse_tweet(tweet_data["article_url"])
-                    else:
-                        logger.info("Not a twitter url. Parsing with serper")
-                        tweet_data["article_age"], tweet_data["text"] = get_article_info_from_serper(tweet_data["article_url"])
-                        temp_image_url = ""
-                
-                    if tweet_data["article_age"] == "":
-                        logger.info(f"Failed to get article age using tweet parge function. Trying to get article age using post date - {temp_age}")
-                        tweet_data["article_age"] = parse_post_date(temp_age)
-                        
-                    if tweet_data["article_age"] != "":
-                        tweet_data["article_age"] = parse_post_date(tweet_data["article_age"])
-                        if calculate_days_behind(tweet_data["article_age"]) > days_behind:
+                    if tweet_data["article_url"] and tweet_data["article_title"]:
+                        if check_if_exists(db, username, tweet_data["article_title"]):
                             self.consider_exit += 1
-                            logger.info(f"<red>Article is older than {days_behind} days. Skipping</red>\n")  
                             continue
+
+                        temp_age = tweet_data["article_age"]
+                        if is_twitter_url(tweet_data["article_url"]):                        
+                            tweet_data["article_age"], tweet_data["text"], temp_image_url = parse_tweet(tweet_data["article_url"])
+                        else:
+                            logger.info("Not a twitter url. Parsing with serper")
+                            try:
+                                tweet_data["article_age"], tweet_data["text"] = get_article_info_from_serper(tweet_data["article_url"])
+                                temp_image_url = ""
+                            except Exception as e:
+                                tweet_data["article_age"], tweet_data["text"] = "", ""
+                                logger.info(f"Error getting article info from serper: {e}")
+                                
+                        if tweet_data["article_age"] == "":
+                            logger.info(f"Failed to get article age using tweet parge function. Trying to get article age using post date - {temp_age}")
+                            try:    
+                                tweet_data["article_age"] = parse_post_date(temp_age)
+                            except Exception as e:
+                                tweet_data["article_age"] = ""
+                                logger.info(f"Error getting article age from post date: {e}")
                             
-                    if tweet_data["article_image_url"] == "":
-                        tweet_data["article_image_url"] = temp_image_url
-                        
-                    insert_article(db, username, tweet_data)               
-                    self.page_consider += 1
-    
+                            if calculate_days_behind(tweet_data["article_age"]) > days_behind:
+                                self.consider_exit += 1
+                                logger.info(f"\033[91mArticle is older than {days_behind} days. Skipping\033[0m")  
+                                continue
+                                
+                        if tweet_data["article_image_url"] == "":
+                            tweet_data["article_image_url"] = temp_image_url
+                            
+                        insert_article(db, username, tweet_data)               
+                        self.page_consider += 1
+                except Exception as e:
+                    logger.error(f"Error in get_tweet_data_from_one_page: {e}")
+        
         return self.page_consider
                 
     def get_article_data_from_one_page(self, driver, db, url, view_type, parse_type, days_behind): 
         logger.info(f"\033[31m We are handling new url in same domain. Current url: {url}\033[0m")
         self.page_consider = 0
+        article_domain = get_domain_from_url(url)
+        
         self.exception_list = ["scroll", "exception"]
         if view_type not in self.exception_list:
             driver.get(url)  
-        article_domain = get_domain_from_url(url)
+            
         logger.info(f"Current URL - {url}")
         logger.info(f"Our main domain is - {article_domain}")
+
         time.sleep(10)
         WebDriverWait(driver, 20).until(lambda d: d.execute_script("return document.readyState") == "complete")  
 
-        driver.save_screenshot(f"screenshot/{article_domain}.png")
         elements = driver.find_elements(By.XPATH, parse_type)  
-
-        # If elements are found, process them  
         if elements:  
             logger.info(f"len(elements): {len(elements)}")  
-
-            # Iterate over all elements and process data extraction  
-            for element in elements:         
-                if self.consider_exit == 50:
-                    logger.info("Exiting loop after 50 empty elements")
-                    self.page_consider = 0
-                    break
-
-                article_data = self.get_one_article_data(element, article_domain) 
-                
-                if article_data == []:
-                    self.consider_exit += 1
-                    logger.info("Couldn't find actual article from the element")                    
-                    continue
-
-                if article_data["article_url"] and article_data["article_title"]:
-                    if article_domain == "freevoicemedianewsletter.beehiiv.com":
-                        article_data["article_title"] = article_data["article_title"] + " " + article_data["article_age"]
-                    if check_if_exists(db, article_domain, article_data):
+            for element in elements: 
+                try:        
+                    if self.consider_exit == 50:
+                        logger.error("Exiting loop after 50 empty elements")
+                        self.page_consider = 0
+                        break
+                        
+                    attempt = 0  # Initialize attempt counter  
+                    while attempt < 3:  # Try extracting the article data up to 3 times  
+                        article_data = self.get_one_article_data(element, article_domain)  
+                        if article_data != []:  # If successful, exit the retry loop  
+                            break  
+                        attempt += 1  # Increment the attempt counter if no success  
+                        logger.info(f"Couldn't find actual article from the element. Attempt: {attempt}")
+                    
+                    if attempt == 3:  # If all 3 attempts fail, handle failure  
+                        self.consider_exit += 1  
+                        logger.error("Couldn't find actual article from the element after 3 attempts")  
+                        continue  # Skip to the next element  
+                                    
+                    if article_data == []:
                         self.consider_exit += 1
+                        logger.info("Couldn't find actual article from the element")                    
                         continue
 
-                    temp_age = article_data["article_age"]
-                    article_data["text"], article_data["article_age"] = get_article_info_from_serper(article_data["article_url"])
-
-                    if article_data["article_age"] == "":
-                        logger.info(f"Failed to get article age using serper. Trying to get article age using post date - {temp_age}")
-                        article_data["article_age"] = parse_post_date(temp_age)
-                        
-                    if article_data["article_age"] != "":
-                        if calculate_days_behind(article_data["article_age"]) > days_behind:
+                    if article_data["article_url"] and article_data["article_title"]:
+                        if article_domain == "freevoicemedianewsletter.beehiiv.com":
+                            article_data["article_title"] = article_data["article_title"] + " " + article_data["article_age"]
+                        if check_if_exists(db, article_domain, article_data["article_title"]):
                             self.consider_exit += 1
-                            logger.info(f"Article is older than {days_behind} days. Skipping\n")
                             continue
-                    
-                    insert_article(db, article_domain, article_data)               
-                    self.page_consider += 1
-                
-        # except Exception as e:  
-        #     logger.error(f"Error processing {url}: {e}", exc_info=True)
+
+                        temp_age = article_data["article_age"]
+                        try:
+                            article_data["text"], article_data["article_age"] = get_article_info_from_serper(article_data["article_url"])
+                        except Exception as e:
+                            article_data["text"], article_data["article_age"] = "", ""
+                            logger.info(f"Error getting article info from serper: {e}")
+
+                        if article_data["article_age"] == "":
+                            logger.info(f"Failed to get article age using serper. Trying to get article age using post date - {temp_age}")
+                            try:
+                                article_data["article_age"] = parse_post_date(temp_age)
+                            except Exception as e:
+                                article_data["article_age"] = ""
+                                logger.info(f"Error getting article age from post date: {e}")
+                            
+                        if article_data["article_age"] != "":
+                            if calculate_days_behind(article_data["article_age"]) > days_behind:
+                                self.consider_exit += 1
+                                logger.info(f"Article is older than {days_behind} days. Skipping\n")
+                                continue
+                        
+                        insert_article(db, article_domain, article_data)               
+                        self.page_consider += 1
+                except Exception as e:
+                    logger.error(f"Error in get_article_data_from_one_page: {e}") 
              
         return self.page_consider
 
@@ -323,7 +329,6 @@ class Generalscrapper():
                 logger.info(f"We met a special case - {url}")
                 page_num = 5
                 url = f"{base_url}/page/{page_num}/"
-        # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -331,13 +336,10 @@ class Generalscrapper():
                     break
                 page_num += 1
                 url = f"{base_url}/page/{page_num}/"
-            # except Exception as e:
-            #     logger.error(f"An error occurred in page type 1: {e}", exc_info=True)
             
         if view_type == "page2":
             if get_domain_from_url(url) == "actforamerica.org":
                 page_num = 0
-            # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -345,11 +347,8 @@ class Generalscrapper():
                     break
                 page_num += 1
                 url = f"{base_url}?page={page_num}"
-            # except Exception as e:
-            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
         
         if view_type == "page3":
-            # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -357,11 +356,8 @@ class Generalscrapper():
                     break
                 page_num += 1
                 url = f"{base_url}?page_number={page_num}#news-archive"
-            # except Exception as e:
-            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
         
         if view_type == "page4":
-            # try:
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -369,8 +365,6 @@ class Generalscrapper():
                     break
                 page_num += 1
                 url = f"{base_url}?pg={page_num}"
-            # except Exception as e:
-            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)
              
         if view_type == "scroll":
             if get_domain_from_url(url) == "podcasts.apple.com":
@@ -381,9 +375,8 @@ class Generalscrapper():
             url = base_url
             driver.get(url)
             while True:    
-                time.sleep(10)  # Adjust this value based on the site's load time  
-                
-                # Extract articles from the current page  
+                time.sleep(10)
+
                 if get_domain_from_url(url) == "x.com" or get_domain_from_url(url) == "twitter.com":
                     logger.info("We are running get_tweet_data_from_one_page function")
                     self.page_consider = self.get_tweet_data_from_one_page(driver, db, url, parse_type, days_behind)  
@@ -401,13 +394,12 @@ class Generalscrapper():
                     logger.info("We have no new data. Choice is set as scroll\n")
                     break  
                 last_height = new_height  
-            # except Exception as e:  
-            #     logger.error(f"An error occurred: {e} while parsing in scroll mode.", exc_info=True)  
 
         if view_type == "exception":
             domain = get_domain_from_url(url)
             driver.get(url)
-            time.sleep(13)
+            time.sleep(10)
+
             while True:
                 self.page_consider = self.get_article_data_from_one_page(driver, db, url, view_type, parse_type, days_behind)
                 if self.page_consider == 0:
@@ -417,9 +409,7 @@ class Generalscrapper():
                     self.page_consider = 0
                 else:
                     logger.info(f"More articles are found in this exception case!!!\n")
-                    
-            # except Exception as e:
-            #     logger.error(f"An error occurred in page type 2: {e}", exc_info=True)     
+                 
         driver.quit()
     
     def main(self):
@@ -440,12 +430,12 @@ class Generalscrapper():
         for input in inputs:
             try:
                 db = self.db_general
-                url = input["url"]
 
+                url = input["url"]
                 view_type = input["view_type"]
                 parse_type = input["parse_type"]
-                article_domain = get_domain_from_url(url)
 
+                article_domain = get_domain_from_url(url)
                 if article_domain in self.view_exceptions:
                     view_type = "exception"
                     logger.info("We found exception cases!!!")

@@ -1,14 +1,16 @@
+# serper.py
+# import default libraries
 import http.client
 import json
 import sys
 import os
-from dotenv import load_dotenv
-from datetime import datetime  
-from parse_utils import parse_post_date
-from loguru import logger
 
+# import environment libraries
+from dotenv import load_dotenv
 load_dotenv()
 
+# import logging libraries
+from loguru import logger
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
     "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
@@ -18,6 +20,9 @@ logger.configure(handlers=[{
     "colorize": True   
 }])  
 
+# import function from other filie
+from parse_utils import parse_post_date
+
 conn = http.client.HTTPSConnection("scrape.serper.dev")
 headers = {
   'X-API-KEY': os.getenv("SERPER_API_KEY"),
@@ -25,19 +30,14 @@ headers = {
 }
 
 def get_date_from_serper(article_dict):  
-    # Iterate through the dictionary to find the first "time" key  
     for key, value in article_dict["metadata"].items():  
         if "time" in key.lower():  # Case-insensitive check for "time" in the key  
             try:  
-                # Attempt to parse using dateutil for flexibility  
                 date_str = parse_post_date(value)  
-                # Format it into "yyyy-mm-dd"  
                 return date_str
             except Exception as e:  
-                logger.error(f"Error parsing the time value for key '{key}': {e}")  
+                logger.info(f"Error parsing the time value for key '{key}': {e}")  
                 return "" 
-
-    # If no key with "time" is found  
     return ""
 
 def get_article_info_from_serper(url):
@@ -49,9 +49,7 @@ def get_article_info_from_serper(url):
   data = res.read()
   logger.info("Serper API Key: " + os.getenv("SERPER_API_KEY"))
   article_dict = {}
-  # Decode the response and save it as a JSON file  
   try:  
-      # Convert the response to a Python dictionary  
       article_dict = json.loads(data.decode("utf-8"))  # Decode response to string and then parse JSON 
   except Exception as e:  
     logger.error(f"Error decoding the response: {e}")
@@ -62,10 +60,11 @@ def get_article_info_from_serper(url):
   try:
     text = article_dict["text"]
   except Exception as e:
-    logger.error(f"Error getting the text: {e}")
+    logger.info(f"Error getting the text: {e}")
+
   try:
     date = get_date_from_serper(article_dict)
   except:
-    logger.error(f"Error getting the date: {e}")
+    logger.info(f"Error getting the date: {e}")
 
   return text, date

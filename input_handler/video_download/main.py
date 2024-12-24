@@ -157,7 +157,7 @@ class VideoDownload():
             if proc.stdout:
                 logger.info(f"FFMPEG stdout: {proc.stdout}")
             if proc.stderr:
-                logger.warning(f"FFMPEG stderr: {proc.stderr}")
+                logger.error(f"FFMPEG stderr: {proc.stderr}")
 
             if proc.returncode == 0:
                 # Create command for FFPROBE
@@ -177,7 +177,7 @@ class VideoDownload():
 
                 # Log ffprobe stderr
                 if proc.stderr:
-                    logger.warning(f"FFPROBE stderr: {proc.stderr}")
+                    logger.error(f"FFPROBE stderr: {proc.stderr}")
 
                 # There is some output, meaning there's an audio stream
                 if proc.stdout:
@@ -187,10 +187,10 @@ class VideoDownload():
                 # No audio stream in the file, delete it
                 else:
                     os.remove(file_path)
-                    logger.warning("Downloaded file contains no audio")
+                    logger.error("Downloaded file contains no audio")
                     return False, file_name
             else:
-                logger.warning("Download failed, ffmpeg command failed")
+                logger.error("Download failed, ffmpeg command failed")
                 return False, file_name
 
         except Exception as e:
@@ -493,7 +493,7 @@ class VideoDownload():
         return file_name
 
         # except Exception as e:
-        #     logger.warning(f"Error in download_stream: {e}")
+        #     logger.error(f"Error in download_stream: {e}")
         #     return None
 
     def main(self, url, dir_data, file_name):
