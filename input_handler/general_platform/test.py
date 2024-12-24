@@ -153,9 +153,9 @@ class Generalscrapper():
                 try: 
                     element = element.find_element(By.XPATH, './..') 
                 except Exception as e:
-                    logger.error(f"Couldn't find any parent element: {e}")
+                    logger.info(f"Couldn't find any parent element: {e}")
                     break
-                logger.error(f"\nDidn't found, dive deep one level more- {upper_trying_count}\n")
+                logger.info(f"\nDidn't found, dive deep one level more- {upper_trying_count}\n")
                 upper_trying_count += 1
                 continue
         
@@ -179,7 +179,7 @@ class Generalscrapper():
             for element in elements:
                 try:         
                     if self.consider_exit == 50:
-                        logger.error("Exiting loop after 50 empty elements")
+                        logger.info("Exiting loop after 50 empty elements")
                         self.page_consider = 0
                         break
                     
@@ -264,7 +264,7 @@ class Generalscrapper():
             for element in elements: 
                 try:        
                     if self.consider_exit == 50:
-                        logger.error("Exiting loop after 50 empty elements")
+                        logger.info("Exiting loop after 50 empty elements")
                         self.page_consider = 0
                         break
                         
