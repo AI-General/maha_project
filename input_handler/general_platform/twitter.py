@@ -264,7 +264,7 @@ def parse_tweet(url: str) -> Dict:
 
         except Exception as e:  
             # Log the error  
-            logger.error(f"Error occurred while parsing tweet on attempt {attempts}: {e}")  
+            logger.info(f"Error occurred while parsing tweet on attempt {attempts}: {e}")  
 
             # If max retries have been reached, log and return None  
             if attempts == max_retries:  
