@@ -174,15 +174,11 @@ def resolve_tco_url(article_url, max_retries=3, timeout=10):
             # Attempt to resolve the URL using a HEAD request  
             response = requests.head(article_url, allow_redirects=True, timeout=timeout)  
             
-            if response.status_code == 200:  # Successful resolution  
-                resolved_url = response.url  
-                logger.info(f"Changed t.co URL to profile URL - {resolved_url}")  
-                resolved = True  
-                return resolved_url  
-            else:  
-                # Log unexpected HTTP status code  
-                logger.info(f"Unexpected status code when resolving URL: {response.status_code}")  
-
+            # if response.status_code == 200:  # Successful resolution  
+            resolved_url = response.url  
+            logger.info(f"Changed t.co URL to profile URL - {resolved_url}")  
+            resolved = True  
+            return resolved_url  
         except Exception as e:  
             # Log any errors that occur during URL resolution  
             logger.error(f"Error resolving t.co URL: {e}")  
@@ -300,3 +296,6 @@ def scrape_profile(url: str) -> dict:
         for xhr in tweet_calls:
             data = xhr.json()
             return data['data']['user']['result']
+
+if __name__ == "__main__":
+    resolve_tco_url("https://t.co/x06yy7TTL2")

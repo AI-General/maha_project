@@ -55,7 +55,6 @@ def clean_article_url(article_url, article_image_url, url_domain):
             if article_url.startswith(url_domain):
                 article_url = "https://" + article_url            
         # Assume the article_url is a relative URL, so if article_url doesn't start with "/", add "https://" and url_domainto the url
-        else:
             if not article_url.startswith("/"):
                 article_url = "https://" + url_domain + "/" + article_url
             else:
@@ -69,7 +68,6 @@ def clean_article_url(article_url, article_image_url, url_domain):
                 article_image_url = "https://" + article_image_url
 
         # Assume the article_image_url is a relative URL, so if article_image_url doesn't start with "/", add "https://" and url_domain to the url
-        else:
             if not article_image_url.startswith("/"):
                 article_image_url = "https://" + url_domain + "/" + article_image_url
             else:
@@ -80,8 +78,8 @@ def clean_article_url(article_url, article_image_url, url_domain):
 
     # If article_image_url starts with "https://pbs.twimg.com/media/" convert not properly formatted Twitter media URL to JPEG
     if article_image_url.startswith("https://pbs.twimg.com/media/"):
-        logger.info("Changing Twitter urls to jpg format")
         if not article_image_url.endswith(".jpg"):
+            logger.info("Changing not well formatted Twitter urls to jpg format")
             article_image_url = convert_twitter_media_url(article_image_url)
 
     # Check if article_image_url is an image
@@ -345,3 +343,6 @@ def is_cloudflare_protected(url):
     except requests.exceptions.RequestException as e:  
         print(f"Failed to connect to {url}: {e}")  
         return False  
+    
+if __name__ == "__main__":
+    clean_article_url("/AV24org/status/1868832341969473573", "https://www.google.com", "https://x.com")

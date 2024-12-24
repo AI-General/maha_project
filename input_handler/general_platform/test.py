@@ -177,6 +177,7 @@ class Generalscrapper():
         if elements:  
             logger.info(f"len(elements): {len(elements)}")  
             for element in elements:
+                logger.info("\033[94mWe started parsing new tweet\033[0m")  
                 try:         
                     if self.consider_exit == 50:
                         logger.info("Exiting loop after 50 empty elements")
