@@ -298,4 +298,4 @@ def scrape_profile(url: str) -> dict:
             return data['data']['user']['result']
 
 if __name__ == "__main__":
-    resolve_tco_url("https://t.co/x06yy7TTL2")
+    resolve_tco_url("https://t.co/nwxKPFdPQ3")

@@ -214,13 +214,14 @@ class Generalscrapper():
                         temp_age = tweet_data["article_age"]
                         if is_twitter_url(tweet_data["article_url"]):                        
                             tweet_data["article_age"], tweet_data["text"], temp_image_url = parse_tweet(tweet_data["article_url"])
+                            tweet_data["article_age"] = parse_post_date(tweet_data["article_age"])
                         else:
                             logger.info("Not a twitter url. Parsing with serper")
                             try:
                                 tweet_data["article_age"], tweet_data["text"] = get_article_info_from_serper(tweet_data["article_url"])
                                 temp_image_url = ""
                             except Exception as e:
-                                tweet_data["article_age"], tweet_data["text"] = "", ""
+                                tweet_data["text"] = ""
                                 logger.info(f"Error getting article info from serper: {e}")
                                 
                         if tweet_data["article_age"] == "":
@@ -231,6 +232,7 @@ class Generalscrapper():
                                 tweet_data["article_age"] = ""
                                 logger.info(f"Error getting article age from post date: {e}")
                             
+                        if tweet_data["article_age"] != "":
                             if calculate_days_behind(tweet_data["article_age"]) > days_behind:
                                 self.consider_exit += 1
                                 logger.info(f"\033[91mArticle is older than {days_behind} days. Skipping\033[0m")  
@@ -417,6 +419,9 @@ class Generalscrapper():
     
     def main(self):
         inputs = [ 
+            {"url": "https://x.com/yesmaam74", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/reformpharmanow", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            {"url": "https://x.com/rfkjrpodcast", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
             {"url": "https://x.com/av24org", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
             {"url": "https://x.com/newstart_2024", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
             {"url": "https://x.com/school0fhealth", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
