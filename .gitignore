@@ -4,6 +4,7 @@ configuration
 input_handler/general_platform/output
 input_handler/general_platform/response.json
 input_handler/general_platform/log.txt
+input_handler/general_platform/log1.txt
 input_handler/general_platform/screenshot
 input_handler/database/__pycache__
 input_handler/video_download/__pycache__
