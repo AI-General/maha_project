@@ -48,12 +48,24 @@ def get_article_info_from_serper(url):
   res = conn.getresponse()
   data = res.read()
   logger.info("Serper API Key: " + os.getenv("SERPER_API_KEY"))
-
+  article_dict = {}
   # Decode the response and save it as a JSON file  
   try:  
       # Convert the response to a Python dictionary  
-      article_dict = json.loads(data.decode("utf-8"))  # Decode response to string and then parse JSON  
-      return article_dict["text"], get_date_from_serper(article_dict)
+      article_dict = json.loads(data.decode("utf-8"))  # Decode response to string and then parse JSON 
   except Exception as e:  
     logger.error(f"Error decoding the response: {e}")
     return "", ""
+  
+  text = ""  
+  date = ""
+  try:
+    text = article_dict["text"]
+  except Exception as e:
+    logger.error(f"Error getting the text: {e}")
+  try:
+    date = get_date_from_serper(article_dict)
+  except:
+    logger.error(f"Error getting the date: {e}")
+
+  return text, date
