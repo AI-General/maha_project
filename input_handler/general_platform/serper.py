@@ -53,6 +53,8 @@ def get_article_info_from_serper(url):
       article_dict = json.loads(data.decode("utf-8"))  # Decode response to string and then parse JSON 
   except Exception as e:  
     logger.error(f"Error decoding the response: {e}")
+    with open("log.txt", "a") as file:
+      file.write(f"Error: {e})\n")
     return "", ""
   
   text = ""  

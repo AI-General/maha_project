@@ -197,6 +197,8 @@ class Generalscrapper():
                     if attempt == 3:  # If all 3 attempts fail, handle failure  
                         self.consider_exit += 1  
                         logger.error("Couldn't find actual tweet from the element after 3 attempts")  
+                        with open("log.txt", "a") as file:
+                            file.write(f"tweet_data: ({tweet_data})\n")
                         continue  # Skip to the next element  
                                     
                     if tweet_data["article_url"].startswith("https://t.co/") or tweet_data["article_url"].startswith("http://t.co/"):  

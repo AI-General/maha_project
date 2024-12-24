@@ -74,6 +74,8 @@ def clean_article_url(article_url, article_image_url, url_domain):
                 article_image_url = "https://" + url_domain + "/" + article_image_url
             else:
                 logger.error("We appended / to article_image_url")
+                with open("log.txt", "a") as file:
+                    file.write(f"Appending / to article_image_url: {article_image_url})\n")
                 article_image_url = "https://" + url_domain + article_image_url[1:]
 
     # If article_image_url starts with "https://pbs.twimg.com/media/" convert not properly formatted Twitter media URL to JPEG

@@ -41,6 +41,8 @@ def get_more_articles(driver, domain):
                 logger.info("Blocking modal hidden!")  
             except Exception as e:  
                 logger.error(f"No blocking modal detected: {e}")  
+                with open("log.txt", "a") as file:
+                    file.write(f"Error: {e})\n")
 
             # Hide all iframes dynamically (if present)  
             iframes = driver.find_elements(By.TAG_NAME, "iframe")  
@@ -51,13 +53,17 @@ def get_more_articles(driver, domain):
                     driver.execute_script("arguments[0].style.display = 'none';", iframe)  
                 except Exception as e:  
                     logger.error(f"Could not hide iframe: {e}")  
+                    with open("log.txt", "a") as file:
+                        file.write(f"Error: {e})\n")
 
             # Check if the button is still blocked and force-click using JavaScript  
             try:  
                 load_more_button.click()  
                 logger.info("Button clicked successfully using Selenium!")  
             except Exception as e:  
-                logger.error(f"Selenium click failed: {e}. Attempting JS-based click...")  
+                logger.error(f"Selenium click failed: {e}. Attempting JS-based click...") 
+                with open("log.txt", "a") as file:
+                    file.write(f"Error: {e})\n") 
                 driver.execute_script("arguments[0].click();", load_more_button)  # JS-based click fallback  
                 
                 logger.info("Button clicked successfully using JavaScript!")  
@@ -65,6 +71,8 @@ def get_more_articles(driver, domain):
             time.sleep(10)  
         except Exception as e:  
             logger.error(f"An error occurred while loading more articles: {e}")  
+            with open("log.txt", "a") as file:
+                file.write(f"Error: {e})\n")
             return 0
     elif domain == "nopharmfilm.com":
         time.sleep(3)
@@ -77,6 +85,8 @@ def get_more_articles(driver, domain):
             logger.info("Clicked 'Load more' button successfully.")           
         except Exception as e:  
             logger.error(f"An error occurred while loading more articles: {e}")  
+            with open("log.txt", "a") as file:
+                file.write(f"Error: {e})\n")
             return 0
     elif domain == "podcasts.apple.com":
         # click see all button
