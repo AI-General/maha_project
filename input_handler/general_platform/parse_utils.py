@@ -1,19 +1,16 @@
+# parse_utils.py
+# import default libraries
 import os  
 import json
 import sys
 import requests  
-from dotenv import load_dotenv
 
-load_dotenv()
-
-from urllib.parse import urlparse
-from loguru import logger
-from datetime import datetime, timedelta  
-from dateutil.relativedelta import relativedelta  
+# import openai related libraries 
 import openai  
-
 openai.api_key = os.getenv("OPENAI_API_KEY")  
 
+# import logging libraries
+from loguru import logger
 logger.configure(handlers=[{  
     "sink": sys.stdout,  
     "format": "<yellow>{time:YYYY-MM-DD HH:mm:ss}</yellow> | "  
@@ -23,71 +20,80 @@ logger.configure(handlers=[{
     "colorize": True   
 }])  
 
+# import date and url_parse libraries
+from urllib.parse import urlparse
+from datetime import datetime, timedelta  
+from dateutil.relativedelta import relativedelta 
+
+# import environment libraries
+from dotenv import load_dotenv
+load_dotenv()
+
 def get_domain_from_url(url) -> str:
     domain = urlparse(url).netloc
     if "www." in domain:
         domain = domain.replace("www.", "")
-
     return domain
 
+# Function to convert not properly formatted Twitter media URL to JPEG
 def convert_twitter_media_url(url):  
     base_url = url.split('?')[0]  
     if not base_url.endswith(".jpg"):  
         base_url += ".jpg"  
-    
     return base_url
-
-def check_url_status(url):  
-    try:  
-        response = requests.get(url, timeout=5)  # Timeout set to 5 seconds  
-        if response.status_code == 200:  
-            return 1  
-        else:  
-            return 0
-    except requests.exceptions.RequestException as e:  
-        return 0
 
 def clean_article_url(article_url, article_image_url, url_domain):
     logger.info("Before cleaning article_url: " + article_url)
     logger.info("Before cleaning article_image_url: " + article_image_url)
+    # print as while for debugging
+    logger.info("\033[97m*********************************************************\033[0m")    
+    
+    # If article_url doesn't start with "www" or "http" or "//www"
     if not article_url.startswith("www") and not article_url.startswith("http") and not article_url.startswith("//www"):
+        # Handles if article_url doesn't start with "https" but starts with url_domain
         if not article_url.startswith("https"):
             if article_url.startswith(url_domain):
-                article_url = "https://" + article_url
-            
+                article_url = "https://" + article_url            
+        # Assume the article_url is a relative URL, so if article_url doesn't start with "/", add "https://" and url_domainto the url
+        else:
             if not article_url.startswith("/"):
                 article_url = "https://" + url_domain + "/" + article_url
             else:
                 article_url = "https://" + url_domain + article_url
     
+    # If article_image_url doesn't start with "www" or "http" or "//www"
     if not article_image_url.startswith("www") and not article_image_url.startswith("http") and not article_image_url.startswith("//www"):
+        # Handles if article_image_url doesn't start with "https" but starts with url_domain
         if not article_image_url.startswith("https"):
             if article_image_url.startswith(url_domain):
                 article_image_url = "https://" + article_image_url
 
+        # Assume the article_image_url is a relative URL, so if article_image_url doesn't start with "/", add "https://" and url_domain to the url
+        else:
             if not article_image_url.startswith("/"):
                 article_image_url = "https://" + url_domain + "/" + article_image_url
             else:
+                logger.info("We appended / to article_image_url")
                 article_image_url = "https://" + url_domain + article_image_url[1:]
-    
 
+    # If article_image_url starts with "https://pbs.twimg.com/media/" convert not properly formatted Twitter media URL to JPEG
     if article_image_url.startswith("https://pbs.twimg.com/media/"):
         logger.info("Changing Twitter urls to jpg format")
         if not article_image_url.endswith(".jpg"):
             article_image_url = convert_twitter_media_url(article_image_url)
 
+    # Check if article_image_url is an image
     image_extensions = (  
         "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "svg", "webp", "ico",  
         "jfif", "pjpeg", "pjp", "avif", "heif", "heic", "raw", "cr2", "nef", "orf",  
         "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "eip", "mrw", "nrw",  
         "x3f", "webp2"  
     )  
-
     if not article_image_url.lower().endswith(image_extensions):  
-        # logger.info(f"article_image_url - {article_data['article_image_url']}")
+        logger.info(f"Currently article_image_url is not an image - {article_image_url}. Set as empty")
         article_image_url = ""
 
-    #  The order should be from bigger to smaller.
+    # Change all instances of "www.example.com", "yourwebsite.com", "examplewebsite.com", "example.com", "website.com", "platform.com" to url_domain
     replace_list = ["www.example.com", "yourwebsite.com", "examplewebsite.com", "example.com","website.com", "platform.com"]
     for item in replace_list:
         if item in article_url:
@@ -95,19 +101,17 @@ def clean_article_url(article_url, article_image_url, url_domain):
         if item in article_image_url:
             article_image_url = article_image_url.replace(item, url_domain)
 
-    logger.info(f"article_url: {article_url}")
-    logger.info(f"article_image_url: {article_image_url}")
+    logger.info(f"After cleaning article_url: {article_url}")
+    logger.info(f"After cleaning article_image_url: {article_image_url}")
     logger.info(f"url_domain: {url_domain}")
+    # print as while for debugging
+    logger.info("\033[97m*********************************************************\033[0m")  
     return article_url, article_image_url
 
 def parse_html(post_html):
     openai.api_key = os.getenv('OPENAI_API_KEY')  
-
     with open("prompt/parse_html.txt", "r") as file:  
         parse_html_prompt = file.read()
-
-    with open("log.txt", "a") as f:
-        f.write("\n************************************str(post_html)\n************************************\n")
 
     response = openai.ChatCompletion.create(  
         model="gpt-4o-mini",   
@@ -160,19 +164,13 @@ def parse_html(post_html):
             }  
         }  
     )
-    article_data = json.loads(response.choices[0].message.content)
-        
+    article_data = json.loads(response.choices[0].message.content)   
     return article_data
 
-
-def twitter_parse_html(post_html):
+def parse_twitter_html(post_html):
     openai.api_key = os.getenv('OPENAI_API_KEY')  
-
-    with open("prompt/twitter_parse_html.txt", "r") as file:  
+    with open("prompt/parse_twitter_html.txt", "r") as file:  
         parse_html_prompt = file.read()
-
-    with open("log.txt", "a") as f:
-        f.write("\n************************************str(post_html)\n************************************\n")
 
     response = openai.ChatCompletion.create(  
         model="gpt-4o-mini",   
@@ -225,13 +223,11 @@ def twitter_parse_html(post_html):
             }  
         }  
     )
-    tweet_data = json.loads(response.choices[0].message.content)
-        
+    tweet_data = json.loads(response.choices[0].message.content)        
     return tweet_data
 
 def parse_post_date(date_string):
     openai.api_key = os.getenv("OPENAI_API_KEY")  
-    
     with open("prompt/parse_date.txt", "r") as file:  
         parse_date_prompt = file.read()
 
@@ -325,13 +321,8 @@ def parse_post_date(date_string):
 
 def calculate_days_behind(article_date):  
     try:  
-        # Parse the "yyyy-mm-dd" date into a datetime object  
         article_date_obj = datetime.strptime(article_date, "%Y-%m-%d")  
-        
-        # Get today's date  
         today = datetime.today()  
-        
-        # Calculate the difference in days  
         days_behind = (today - article_date_obj).days  
         
         return days_behind  
@@ -340,21 +331,15 @@ def calculate_days_behind(article_date):
 
 def is_cloudflare_protected(url):  
     try:  
-        # Send a GET request to the URL  
         response = requests.get(url, timeout=10)  
-        
-        # Check HTTP response headers for Cloudflare identification  
         if 'Server' in response.headers and 'cloudflare' in response.headers['Server'].lower():  
             return True  
         
         if 'CF-RAY' in response.headers:  
             return True  # Cloudflare adds a CF-RAY header to all responses.  
-
-        # Check if body contains Cloudflare challenge page content  
+        
         if "Redirecting..." in response.text and "/cdn-cgi/" in response.text:  
             return True  
-        
-        # If none of the above conditions are met, it's likely not Cloudflare-protected  
         return False  
     except requests.exceptions.RequestException as e:  
         print(f"Failed to connect to {url}: {e}")  
