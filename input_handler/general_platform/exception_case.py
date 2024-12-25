@@ -95,3 +95,17 @@ def get_more_articles(driver, domain):
         see_all_element = parent_element.find_element(By.XPATH, ".//a[@data-testid='click-action' and contains(text(), 'See All')]")  
         see_all_element.click()  
         logger.info("Clicked 'See All' button successfully.")
+    elif domain == "freespoke.com":
+        try:  
+            # Wait until the button is present in the DOM and visible (up to 10 seconds)  
+            wait = WebDriverWait(driver, 10)  
+            next_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-testid="next-button"]')))
+            # Optionally: Scroll to the button if it's not fully visible (handles potential visibility issues)  
+            ActionChains(driver).move_to_element(next_button).perform()  
+
+            # Click the button  
+            next_button.click()  
+            logger.info("Next button clicked successfully.")  
+
+        except Exception as e:  
+            print(f"An error occurred: {e}")  
