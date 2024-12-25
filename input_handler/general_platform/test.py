@@ -179,8 +179,8 @@ class Generalscrapper():
             for element in elements:
                 logger.info("\033[94mWe started parsing new tweet\033[0m")  
                 try:         
-                    if self.consider_exit == 50:
-                        logger.info("Exiting loop after 50 empty elements")
+                    if self.consider_exit == 30:
+                        logger.info("Exiting loop after 30 empty elements")
                         self.page_consider = 0
                         break
                     
@@ -268,8 +268,8 @@ class Generalscrapper():
             logger.info(f"len(elements): {len(elements)}")  
             for element in elements: 
                 try:        
-                    if self.consider_exit == 50:
-                        logger.info("Exiting loop after 50 empty elements")
+                    if self.consider_exit == 30:
+                        logger.info("Exiting loop after 30 empty elements")
                         self.page_consider = 0
                         break
                         
@@ -419,18 +419,19 @@ class Generalscrapper():
     
     def main(self):
         inputs = [ 
-            {"url": "https://x.com/yesmaam74", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/reformpharmanow", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/rfkjrpodcast", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/av24org", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/newstart_2024", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/school0fhealth", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/ifixhearts", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/plantparadise7", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/maryhollandnyc", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/standforhealth1", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
-            {"url": "https://x.com/bryanardisx", "view_type": "scroll", "parse_type": "//*[@data-testid='tweet']"},  
+            # 100percentfedup.com
+            {"url": "https://100percentfedup.com", "view_type": "page1", "parse_type": '//div[contains(@class, "wpdev-post-grid-item")]'},
+            
+            # reformpharmanow.org
+            {"url": "https://reformpharmanow.org/substack", "view_type": "page1", "parse_type": '//div[contains(@class, "substack-post-embed")]'},
+
+            ## mahanow.org
+            {"url": "https://www.mahanow.org/press", "view_type": "page2", "parse_type": "//div[@class='col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-5']",},
+
+            ## nopharmfilm.com
+            {"url": "https://nopharmfilm.com/blog", "view_type": "exception", "parse_type": "//div[contains(@class, 'blog-post-wrapper-compact-list')]"},
         ]
+
         # Create a new file (or overwrite if it already exists)  
         with open("log.txt", "w") as file:  
             file.write("This is a log file.\n")  
@@ -459,7 +460,8 @@ class Generalscrapper():
                 except:
                     logger.info("No Video DB is set.")
                 
-                if article_domain == "x.com" or "twitter.com":
+                if article_domain == "x.com" or article_domain == "twitter.com":
+                    logger.info(f"article_domain is -{article_domain}.")
                     logger.info("DB is set as X.")
                     db = self.db_x
                     x_sign_in(driver)

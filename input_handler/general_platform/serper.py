@@ -62,7 +62,7 @@ def get_article_info_from_serper(url):
   try:
     text = article_dict["text"]
   except Exception as e:
-    logger.info(f"Error getting the text: {e}")
+    logger.error(f"Error getting the text: {e}")
 
   try:
     date = get_date_from_serper(article_dict)
