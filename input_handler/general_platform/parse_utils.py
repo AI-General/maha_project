@@ -53,29 +53,35 @@ def clean_article_url(article_url, article_image_url, url_domain):
         # Handles if article_url doesn't start with "https" but starts with url_domain
         if not article_url.startswith("https"):
             if article_url.startswith(url_domain):
-                article_url = "https://" + article_url            
-        # Assume the article_url is a relative URL, so if article_url doesn't start with "/", add "https://" and url_domainto the url
-            if not article_url.startswith("/"):
-                article_url = "https://" + url_domain + "/" + article_url
+                article_url = "https://" + article_url
+            elif article_url[1:].startswith(url_domain):
+                article_url = "https://" + article_url[1:]
             else:
-                article_url = "https://" + url_domain + article_url
-    
+            # Assume the article_url is a relative URL, so if article_url doesn't start with "/", add "https://" and url_domainto the url
+                if not article_url.startswith("/"):
+                    article_url = "https://" + url_domain + "/" + article_url
+                else:
+                    article_url = "https://" + url_domain + article_url
+        
+
     # If article_image_url doesn't start with "www" or "http" or "//www"
     if not article_image_url.startswith("www") and not article_image_url.startswith("http") and not article_image_url.startswith("//www"):
         # Handles if article_image_url doesn't start with "https" but starts with url_domain
         if not article_image_url.startswith("https"):
             if article_image_url.startswith(url_domain):
                 article_image_url = "https://" + article_image_url
-
-        # Assume the article_image_url is a relative URL, so if article_image_url doesn't start with "/", add "https://" and url_domain to the url
-            if not article_image_url.startswith("/"):
-                article_image_url = "https://" + url_domain + "/" + article_image_url
+            elif article_image_url[1:].startswith(url_domain):
+                article_image_url = "https://" + article_image_url[1:]
             else:
-                logger.error("We appended / to article_image_url")
-                with open("log.txt", "a") as file:
-                    file.write(f"Appending / to article_image_url: {article_image_url})\n")
-                article_image_url = "https://" + url_domain + article_image_url[1:]
-
+            # Assume the article_image_url is a relative URL, so if article_image_url doesn't start with "/", add "https://" and url_domain to the url
+                if not article_image_url.startswith("/"):
+                    article_image_url = "https://" + url_domain + "/" + article_image_url
+                else:
+                    logger.error("We appended / to article_image_url")
+                    with open("log.txt", "a") as file:
+                        file.write(f"Appending / to article_image_url: {article_image_url})\n")
+                    article_image_url = "https://" + url_domain + article_image_url
+                    
     # If article_image_url starts with "https://pbs.twimg.com/media/" convert not properly formatted Twitter media URL to JPEG
     if article_image_url.startswith("https://pbs.twimg.com/media/"):
         if not article_image_url.endswith(".jpg"):
