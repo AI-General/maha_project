@@ -36,6 +36,9 @@ from parse_utils import (
 from exception_case import get_more_articles
 from twitter import x_sign_in, is_twitter_url, parse_tweet, resolve_tco_url
 
+# import other libraries
+from datetime import datetime, timedelta  
+
 # import logging libraries
 from loguru import logger
 logger.configure(handlers=[{  
@@ -212,35 +215,40 @@ class Generalscrapper():
                             continue
 
                         temp_age = tweet_data["article_age"]
+                        temp_image_url = tweet_data["article_image_url"]
                         if is_twitter_url(tweet_data["article_url"]):                        
-                            tweet_data["article_age"], tweet_data["text"], temp_image_url = parse_tweet(tweet_data["article_url"])
-                            tweet_data["article_age"] = parse_post_date(tweet_data["article_age"])
+                            tweet_data["article_age"], tweet_data["text"], tweet_data["article_image_url"] = parse_tweet(tweet_data["article_url"])
                         else:
                             logger.info("Not a twitter url. Parsing with serper")
                             try:
                                 tweet_data["article_age"], tweet_data["text"] = get_article_info_from_serper(tweet_data["article_url"])
-                                temp_image_url = ""
                             except Exception as e:
                                 tweet_data["text"] = ""
-                                logger.info(f"Error getting article info from serper: {e}")
+                                logger.info(f"Error getting article info from serper in twitter: {e}")
                                 
                         if tweet_data["article_age"] == "":
                             logger.info(f"Failed to get article age using tweet parge function. Trying to get article age using post date - {temp_age}")
-                            try:    
-                                tweet_data["article_age"] = parse_post_date(temp_age)
-                            except Exception as e:
-                                tweet_data["article_age"] = ""
-                                logger.info(f"Error getting article age from post date: {e}")
-                            
+                            tweet_data["article_age"] = temp_age
+                        
+                        try:    
+                            tweet_data["article_age"] = parse_post_date(temp_age)
+                        except Exception as e:
+                            tweet_data["article_age"] = ""
+                            logger.info(f"Error getting article age from post date: {e}")
+                        
+                        if tweet_data["article_image_url"] == "":
+                            tweet_data["article_image_url"] = temp_image_url
+                        
                         if tweet_data["article_age"] != "":
+                            logger.info(f"Tweet Article age: {tweet_data['article_age']}")
                             if calculate_days_behind(tweet_data["article_age"]) > days_behind:
                                 self.consider_exit += 1
                                 logger.info(f"\033[91mArticle is older than {days_behind} days. Skipping\033[0m")  
                                 continue
                                 
-                        if tweet_data["article_image_url"] == "":
-                            tweet_data["article_image_url"] = temp_image_url
-                            
+                        if tweet_data["article_age"] == "":
+                            tweet_data["article_age"] = "*** " + datetime.today().strftime("%Y-%m-%d")
+
                         insert_article(db, username, tweet_data)               
                         self.page_consider += 1
                 except Exception as e:
@@ -266,7 +274,7 @@ class Generalscrapper():
         elements = driver.find_elements(By.XPATH, parse_type)  
         if elements:  
             logger.info(f"len(elements): {len(elements)}")  
-            for element in elements: 
+            for i, element in enumerate(elements): 
                 try:        
                     if self.consider_exit == 30:
                         logger.info("Exiting loop after 30 empty elements")
@@ -275,12 +283,17 @@ class Generalscrapper():
                         
                     attempt = 0  # Initialize attempt counter  
                     while attempt < 3:  # Try extracting the article data up to 3 times  
-                        article_data = self.get_one_article_data(element, article_domain)  
-                        if article_data != []:  # If successful, exit the retry loop  
-                            break  
-                        attempt += 1  # Increment the attempt counter if no success  
-                        logger.info(f"Couldn't find actual article from the element. Attempt: {attempt}")
-                    
+                        try:
+                            element = driver.find_elements(By.XPATH, parse_type)[i]
+
+                            article_data = self.get_one_article_data(element, article_domain)  
+                            if article_data != []:  # If successful, exit the retry loop  
+                                break  
+                            attempt += 1  # Increment the attempt counter if no success  
+                            logger.info(f"Couldn't find actual article from the element. Attempt: {attempt}")
+                        except StaleElementReferenceException:
+                            logger.info(f"Element became stale. Re-fetching... Attempt {attempt + 1}")
+
                     if attempt == 3:  # If all 3 attempts fail, handle failure  
                         self.consider_exit += 1  
                         logger.error("Couldn't find actual article from the element after 3 attempts")  
@@ -299,26 +312,41 @@ class Generalscrapper():
                             continue
 
                         temp_age = article_data["article_age"]
-                        try:
-                            article_data["text"], article_data["article_age"] = get_article_info_from_serper(article_data["article_url"])
-                        except Exception as e:
-                            article_data["text"], article_data["article_age"] = "", ""
-                            logger.info(f"Error getting article info from serper: {e}")
+                        temp_image_url = article_data["article_image_url"]
+                        if is_twitter_url(article_data["article_url"]):  
+                            logger.info("Current article is a tweet url!")
+                            article_data["article_age"], article_data["text"], article_data["article_image_url"] = parse_tweet(article_data["article_url"])
+                        else:
+                            try:
+                                article_data["text"], article_data["article_age"] = get_article_info_from_serper(article_data["article_url"])
+                            except Exception as e:
+                                article_data["text"], article_data["article_age"] = "", ""
+                                logger.info(f"Error getting article info from serper: {e}")
 
                         if article_data["article_age"] == "":
-                            logger.info(f"Failed to get article age using serper. Trying to get article age using post date - {temp_age}")
-                            try:
-                                article_data["article_age"] = parse_post_date(temp_age)
-                            except Exception as e:
-                                article_data["article_age"] = ""
-                                logger.info(f"Error getting article age from post date: {e}")
-                            
+                            logger.info(f"Failed to get article age using serper function. Trying to get article age using post date - {temp_age}")
+                            article_data["article_age"] = temp_age
+
+                        try:
+                            article_data["article_age"] = parse_post_date(article_data["article_age"])
+                        except Exception as e:
+                            article_data["article_age"] = ""
+                            logger.info(f"Error getting article age from post date: {e}")
+                        
+                        if article_data["article_image_url"] == "":
+                            article_data["article_image_url"] = temp_image_url
+                        
                         if article_data["article_age"] != "":
+                            logger.info(f"Article age: {article_data['article_age']}")
                             if calculate_days_behind(article_data["article_age"]) > days_behind:
                                 self.consider_exit += 1
                                 logger.info(f"Article is older than {days_behind} days. Skipping\n")
                                 continue
                         
+                        if article_data["article_age"] == "":
+                            logger.info("Not able to get article age. Setting it as today's date")
+                            article_data["article_age"] = "*** " + datetime.today().strftime("%Y-%m-%d")
+                            
                         insert_article(db, article_domain, article_data)               
                         self.page_consider += 1
                 except Exception as e:
@@ -419,17 +447,15 @@ class Generalscrapper():
     
     def main(self):
         inputs = [ 
-            # 100percentfedup.com
-            {"url": "https://100percentfedup.com", "view_type": "page1", "parse_type": '//div[contains(@class, "wpdev-post-grid-item")]'},
-            
-            # reformpharmanow.org
-            {"url": "https://reformpharmanow.org/substack", "view_type": "page1", "parse_type": '//div[contains(@class, "substack-post-embed")]'},
-
-            ## mahanow.org
-            {"url": "https://www.mahanow.org/press", "view_type": "page2", "parse_type": "//div[@class='col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-5']",},
-
-            ## nopharmfilm.com
-            {"url": "https://nopharmfilm.com/blog", "view_type": "exception", "parse_type": "//div[contains(@class, 'blog-post-wrapper-compact-list')]"},
+            # freespoke.com
+            {"url": "https://freespoke.com/search/web?q=Robert+F.+Kennedy+Jr&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'}, 
+            {"url": "https://freespoke.com/search/web?q=RFK+Jr&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},
+            {"url": "https://freespoke.com/search/web?q=Make+America+Healthy+Again&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},
+            {"url": "https://freespoke.com/search/web?q=Make+America+Healthy+Again+news&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},
+            {"url": "https://freespoke.com/search/web?q=Robert+F.+Kennedy+Jr.+Make+America+Healthy+updates&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},
+            {"url": "https://freespoke.com/search/web?q=Chronic+disease+prevention+Robert+F.+Kennedy+Jr.&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},
+            {"url": "https://freespoke.com/search/web?q=Environmental+toxins+Robert+F.+Kennedy+Jr.&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'}, 
+            {"url": "https://freespoke.com/search/web?q=Big+Pharma+reform+Robert+F.+Kennedy+Jr.&df=w", "view_type": "exception", "parse_type": '//div[contains(@class, "result-block")]'},        
         ]
 
         # Create a new file (or overwrite if it already exists)  
